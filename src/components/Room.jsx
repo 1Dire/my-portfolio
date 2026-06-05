@@ -68,6 +68,9 @@ export function Room({ controls, onLaptopClick }) {
 
     materialsRef.current = mats;
 
+    // 노트북 클릭 대상 메시 이름
+    const CLICKABLE = ["노트북화면", "노트북_Baked"];
+
     scene.traverse((child) => {
       if (!child.isMesh) return;
       const mat = mats[child.name];
@@ -75,6 +78,10 @@ export function Room({ controls, onLaptopClick }) {
         child.material = mat;
       } else {
         console.warn("No material for:", child.name);
+      }
+      // 노트북 외의 메시는 레이캐스팅 제외 → 마우스 호버 시 렉 방지
+      if (!CLICKABLE.includes(child.name)) {
+        child.raycast = () => null;
       }
     });
 

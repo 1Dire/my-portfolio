@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { projects } from "@/data/projects";
@@ -20,8 +20,15 @@ const TAPE = [
 ];
 const CARD_ROT = [-2.5, 1.8, -1.5, 2.2];
 
+// 카드 썸네일 크기 (이 크기로 미리 줄여서 메모리 절약)
+const THUMB_W = 160;
+const THUMB_H = 105;
+
 /**
- * 노트북 화면: 갤러리 축소 미리보기 (정적 - 1회만 그림, 매 프레임 부하 0).
+ * 노트북 화면: 갤러리 축소 미리보기 (이미지 포함, 메모리 관리).
+ * - 이미지를 작은 썸네일로 미리 리사이즈해서 메모리 절약
+ * - 그린 뒤 원본 이미지 참조를 버려서 GC 유도
+ * - 정적: 모든 이미지 로드되면 그리기 종료
  */
 export function useLaptopScreenTexture() {
   const { invalidate } = useThree();
@@ -40,42 +47,64 @@ export function useLaptopScreenTexture() {
   }, []);
 
   useEffect(() => {
-    // 카드 이미지 로드 → 각 이미지가 로드될 때마다 한 번씩 다시 그림
-    const imgs = PREVIEW.map((p) => {
-      const img = new Image();
-      img.src = p.image;
-      img.onload = () => {
-        drawGallery(ctx, imgs);
-        texture.needsUpdate = true;
-        invalidate();
-      };
-      return img;
-    });
+    // 각 프로젝트 이미지를 작은 썸네일 캔버스로 미리 리사이즈
+    const thumbs = new Array(PREVIEW.length).fill(null);
+    let alive = true;
 
-    // 초기 1회 (이미지 없이 배경/카드틀 먼저)
-    drawGallery(ctx, imgs);
+    // 먼저 이미지 없이 1회 그림 (배경/카드틀)
+    drawGallery(ctx, thumbs);
     texture.needsUpdate = true;
     invalidate();
 
-    return () => texture.dispose();
+    PREVIEW.forEach((p, i) => {
+      const img = new Image();
+      img.src = p.image;
+      img.onload = () => {
+        if (!alive) return;
+        // 작은 오프스크린 캔버스에 cover로 리사이즈
+        const tc = document.createElement("canvas");
+        tc.width = THUMB_W;
+        tc.height = THUMB_H;
+        const tctx = tc.getContext("2d");
+        const ir = img.naturalWidth / img.naturalHeight;
+        const cr = THUMB_W / THUMB_H;
+        let dw, dh, dx, dy;
+        if (ir > cr) { dh = THUMB_H; dw = THUMB_H * ir; dx = (THUMB_W - dw) / 2; dy = 0; }
+        else { dw = THUMB_W; dh = THUMB_W / ir; dx = 0; dy = (THUMB_H - dh) / 2; }
+        tctx.drawImage(img, dx, dy, dw, dh);
+        thumbs[i] = tc;            // 작은 썸네일만 보관
+        // 원본 이미지 참조 해제 → GC가 큰 원본 메모리 회수
+        img.onload = null;
+        img.src = "";
+
+        // 다시 그림
+        drawGallery(ctx, thumbs);
+        texture.needsUpdate = true;
+        invalidate();
+      };
+    });
+
+    return () => {
+      alive = false;
+      texture.dispose();
+    };
   }, [ctx, texture, invalidate]);
 
   return texture;
 }
 
-function drawGallery(ctx, imgs) {
+function drawGallery(ctx, thumbs) {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.translate(CANVAS_W / 2, CANVAS_H / 2);
   ctx.rotate(-Math.PI / 2);
-  // 회전 후 좌표계: 가로=CANVAS_H, 세로=CANVAS_W
   ctx.translate(-CANVAS_H / 2, -CANVAS_W / 2);
-  drawContent(ctx, imgs);
+  drawContent(ctx, thumbs);
   ctx.restore();
 }
 
-// 회전 좌표계 기준 (W=CANVAS_H=768, H=CANVAS_W=480)
-function drawContent(ctx, imgs) {
+// 회전 좌표계 기준 (W=768, H=480)
+function drawContent(ctx, thumbs) {
   const W = CANVAS_H; // 768
   const H = CANVAS_W; // 480
 
@@ -101,19 +130,17 @@ function drawContent(ctx, imgs) {
   ctx.stroke();
 
   // ===== 카드 한 줄에 4개 =====
-  if (PREVIEW.length > 0) {
-    const cardW = 160, gap = 16;
-    const n = PREVIEW.length;
-    const totalW = n * cardW + (n - 1) * gap;
-    const startX = (W - totalW) / 2;
-    const startY = 130;
-    PREVIEW.forEach((proj, i) => {
-      const x = startX + i * (cardW + gap);
-      drawCard(ctx, proj, imgs[i], x, startY, i);
-    });
-  }
+  const cardW = 160, gap = 16;
+  const n = PREVIEW.length;
+  const totalW = n * cardW + (n - 1) * gap;
+  const startX = (W - totalW) / 2;
+  const startY = 130;
+  PREVIEW.forEach((proj, i) => {
+    const x = startX + i * (cardW + gap);
+    drawCard(ctx, proj, thumbs[i], x, startY, i);
+  });
 
-  // ===== 하단 클릭 유도 (정적) =====
+  // ===== 하단 클릭 유도 =====
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(248, 238, 205, 0.92)";
@@ -122,7 +149,7 @@ function drawContent(ctx, imgs) {
   ctx.textAlign = "left";
 }
 
-function drawCard(ctx, proj, img, x, y, i) {
+function drawCard(ctx, proj, thumb, x, y, i) {
   const cardW = 160, cardH = 185;
   const rot = (CARD_ROT[i % CARD_ROT.length] * Math.PI) / 180;
 
@@ -131,7 +158,7 @@ function drawCard(ctx, proj, img, x, y, i) {
   ctx.rotate(rot);
   ctx.translate(-cardW / 2, -cardH / 2);
 
-  // 그림자
+  // 그림자 + 카드 배경
   ctx.shadowColor = "rgba(0,0,0,0.35)";
   ctx.shadowBlur = 10;
   ctx.shadowOffsetX = 2;
@@ -140,21 +167,17 @@ function drawCard(ctx, proj, img, x, y, i) {
   ctx.fillRect(0, 0, cardW, cardH);
   ctx.shadowColor = "transparent";
 
-  // 썸네일
+  // 썸네일 (작게 리사이즈된 캔버스)
   const imgH = 105;
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, cardW, imgH);
   ctx.clip();
-  if (img && img.complete && img.naturalWidth > 0) {
-    const ir = img.naturalWidth / img.naturalHeight;
-    const cr = cardW / imgH;
-    let dw, dh, dx, dy;
-    if (ir > cr) { dh = imgH; dw = imgH * ir; dx = (cardW - dw) / 2; dy = 0; }
-    else { dw = cardW; dh = cardW / ir; dx = 0; dy = (imgH - dh) / 2; }
-    ctx.drawImage(img, dx, dy, dw, dh);
+  if (thumb) {
+    ctx.drawImage(thumb, 0, 0, cardW, imgH);
   } else {
-    ctx.fillStyle = "#ddd";
+    // 로딩 전 플레이스홀더
+    ctx.fillStyle = "#e8e4d8";
     ctx.fillRect(0, 0, cardW, imgH);
   }
   ctx.restore();
