@@ -1,12 +1,19 @@
 import { useEffect, useRef } from "react";
 import { useGLTF, useTexture } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useLaptopScreenTexture } from "@/hooks/useLaptopScreenTexture";
 import { useCalendarTexture } from "@/hooks/useCalendarTexture";
 
-export function Room({ controls, onLaptopClick }) {
+export function Room({ controls, onLaptopClick, onGameboyClick, playingGame, gbTexture, gbApi }) {
   const { scene } = useGLTF("/models/room.glb");
   const materialsRef = useRef({});
+
+  // 노트북 호버 확대 효과용
+  const laptopMeshes = useRef([]);   // {mesh, baseScale} 배열
+  const hovered = useRef(false);
+  const gameboyMeshes = useRef([]);  // 게임보이 메시들
+  const gbHovered = useRef(false);
 
   // 노트북 화면용 CanvasTexture
   const laptopScreenTexture = useLaptopScreenTexture();
@@ -20,6 +27,29 @@ export function Room({ controls, onLaptopClick }) {
       document.body.style.cursor = "default";
     };
   }, []);
+
+  // 게임 플레이 상태를 ref로 (이벤트 핸들러에서 최신값 참조)
+  const playingRef = useRef(playingGame);
+  useEffect(() => {
+    playingRef.current = playingGame;
+  }, [playingGame]);
+
+  // 호버 시 부드럽게 확대/축소 (노트북 + 게임보이). 줌인 중엔 비활성.
+  useFrame((_, delta) => {
+    const lerp = 1 - Math.pow(0.005, delta);
+    const focused = playingRef.current; // 게임보이 줌인 상태
+    const animate = (list, isHovered) => {
+      if (!list.length) return;
+      const target = (isHovered && !focused) ? 1.05 : 1.0;
+      for (const { mesh, baseScale } of list) {
+        const cur = mesh.scale.x / baseScale.x;
+        const next = cur + (target - cur) * lerp;
+        mesh.scale.set(baseScale.x * next, baseScale.y * next, baseScale.z * next);
+      }
+    };
+    animate(laptopMeshes.current, hovered.current);
+    animate(gameboyMeshes.current, gbHovered.current);
+  });
 
   const {
     gameRoughness,
@@ -71,7 +101,10 @@ export function Room({ controls, onLaptopClick }) {
       게임기몸통_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
       노트북_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
       책상소품_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
-      게임기화면: new THREE.MeshStandardMaterial({ transparent: true }),
+      게임기화면: new THREE.MeshBasicMaterial({
+        map: gbTexture,
+        toneMapped: false,
+      }),
       게임기화면근처: new THREE.MeshStandardMaterial(),
       // 노트북 화면 = CanvasTexture (스스로 빛나는 디스플레이)
       노트북화면: new THREE.MeshBasicMaterial({
@@ -83,9 +116,12 @@ export function Room({ controls, onLaptopClick }) {
 
     materialsRef.current = mats;
 
-    // 노트북 클릭 대상 메시 이름
-    const CLICKABLE = ["노트북화면", "노트북_Baked"];
+    // 클릭 대상 메시 (노트북 + 게임보이 전체)
+    const GAMEBOY = ["게임기화면", "게임기몸통_Baked", "게임기화면근처"];
+    const CLICKABLE = ["노트북화면", "노트북_Baked", ...GAMEBOY];
 
+    const collected = [];
+    const gbCollected = [];
     scene.traverse((child) => {
       if (!child.isMesh) return;
       const mat = mats[child.name];
@@ -94,11 +130,21 @@ export function Room({ controls, onLaptopClick }) {
       } else {
         console.warn("No material for:", child.name);
       }
-      // 노트북 외의 메시는 레이캐스팅 제외 → 마우스 호버 시 렉 방지
+      // 클릭 대상 외 메시는 레이캐스팅 제외 → 호버 렉 방지
       if (!CLICKABLE.includes(child.name)) {
         child.raycast = () => null;
       }
+      // 노트북 호버 확대용 수집
+      if (child.name === "노트북화면" || child.name === "노트북_Baked") {
+        collected.push({ mesh: child, baseScale: child.scale.clone() });
+      }
+      // 게임보이 호버 확대용 수집
+      if (GAMEBOY.includes(child.name)) {
+        gbCollected.push({ mesh: child, baseScale: child.scale.clone() });
+      }
     });
+    laptopMeshes.current = collected;
+    gameboyMeshes.current = gbCollected;
 
     return () => {
       Object.values(mats).forEach((m) => m.dispose());
@@ -112,6 +158,7 @@ export function Room({ controls, onLaptopClick }) {
     wallObjTxt,
     laptopScreenTexture,
     calendarTexture,
+    gbTexture,
   ]);
 
   // leva 값 변경 시 머티리얼 속성만 업데이트 (새 객체 생성 X)
@@ -128,10 +175,6 @@ export function Room({ controls, onLaptopClick }) {
     m.책상소품_Baked.roughness = deskObjRoughness;
     m.책상소품_Baked.metalness = deskObjMetalness;
 
-    m.게임기화면.color.set(screenColor);
-    m.게임기화면.roughness = screenRoughness;
-    m.게임기화면.opacity = screenOpacity;
-
     m.게임기화면근처.color.set(bezelColor);
     m.게임기화면근처.roughness = bezelRoughness;
   }, [
@@ -141,31 +184,58 @@ export function Room({ controls, onLaptopClick }) {
     laptopMetalness,
     deskObjRoughness,
     deskObjMetalness,
-    screenColor,
-    screenRoughness,
-    screenOpacity,
     bezelColor,
     bezelRoughness,
   ]);
+
+  const isLaptop = (n) => n === "노트북화면" || n === "노트북_Baked";
+  const isGameboy = (n) =>
+    n === "게임기화면" || n === "게임기몸통_Baked" || n === "게임기화면근처";
 
   return (
     <primitive
       object={scene}
       onClick={(e) => {
         e.stopPropagation();
-        if (e.object.name === "노트북화면" || e.object.name === "노트북_Baked") {
+        const n = e.object.name;
+        if (isLaptop(n)) {
           onLaptopClick?.();
+        } else if (isGameboy(n)) {
+          if (playingRef.current) {
+            // 줌인 상태: 화면을 클릭하면 위치로 선택(메뉴) / 그 외엔 액션
+            if (n === "게임기화면" && e.uv) gbApi.selectAt({ x: e.uv.x, y: e.uv.y });
+            else gbApi.press();
+          } else {
+            onGameboyClick?.(); // 줌인
+          }
+        }
+      }}
+      onPointerMove={(e) => {
+        // 게임보이 메뉴 위에서 마우스 움직이면 항목 포커스
+        if (e.object.name === "게임기화면" && playingRef.current && e.uv) {
+          gbApi.hoverAt({ x: e.uv.x, y: e.uv.y });
         }
       }}
       onPointerOver={(e) => {
-        if (e.object.name === "노트북화면" || e.object.name === "노트북_Baked") {
+        const n = e.object.name;
+        if (isLaptop(n)) {
           e.stopPropagation();
           document.body.style.cursor = "pointer";
+          hovered.current = true;
+        } else if (isGameboy(n)) {
+          e.stopPropagation();
+          document.body.style.cursor = "pointer";
+          gbHovered.current = true;
         }
       }}
       onPointerOut={(e) => {
-        if (e.object.name === "노트북화면" || e.object.name === "노트북_Baked") {
+        const n = e.object.name;
+        if (isLaptop(n)) {
           document.body.style.cursor = "default";
+          hovered.current = false;
+        } else if (isGameboy(n)) {
+          document.body.style.cursor = "default";
+          gbHovered.current = false;
         }
       }}
     />

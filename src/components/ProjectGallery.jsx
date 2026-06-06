@@ -213,7 +213,7 @@ export function ProjectGallery({ onClose }) {
           style={{
             display: "grid",
             gridTemplateColumns: isMobile
-              ? "repeat(2, 1fr)"
+              ? "1fr"
               : "repeat(auto-fill, minmax(250px, 1fr))",
             gap: isMobile ? 16 : 36,
             animation: "slideUp 0.35s ease",
@@ -267,7 +267,7 @@ export function ProjectGallery({ onClose }) {
                       alt={project.title}
                       style={{
                         width: "100%",
-                        height: 155,
+                        height: isMobile ? 140 : 155,
                         objectFit: "cover",
                         display: "block",
                         filter: "sepia(8%) contrast(0.93) brightness(0.97)",

@@ -7,11 +7,16 @@ export function CameraController({
   target,
   zoomPosition,
   zoomTarget,
+  gbZoomPosition,
+  gbZoomTarget,
+  gbRoll = 0,
+  gameboyActive = false,
   minAzimuth,
   maxAzimuth,
   minPolar,
   maxPolar,
   onZoomComplete,
+  onGameboyZoomComplete,
   isMobile = false,
 }) {
   const { camera } = useThree();
@@ -19,6 +24,7 @@ export function CameraController({
   const smoothMouse = useRef({ x: 0, y: 0 });
   const isFocused = useRef(false);
   const isAnimating = useRef(false);
+  const gbFocused = useRef(false); // 게임보이에 줌인된 상태
   const initialized = useRef(false);
 
   // GSAP ticker → R3F 루프에 동기화 (버벅임 방지)
@@ -128,14 +134,81 @@ export function CameraController({
       });
     };
 
+    // 게임보이 줌인
+    window.zoomToGameboy = () => {
+      if (isAnimating.current || !gbZoomPosition) return;
+      isFocused.current = true;
+      isAnimating.current = true;
+      gsap.ticker.tick();
+
+      const applyLook = () => {
+        camera.lookAt(...gbZoomTarget);
+        if (gbRoll) {
+          camera.rotateZ((gbRoll * Math.PI) / 180); // 화면 기울기 보정
+        }
+      };
+
+      gsap.to(camera.position, {
+        x: gbZoomPosition[0],
+        y: gbZoomPosition[1],
+        z: gbZoomPosition[2],
+        duration: 1.2,
+        ease: "power2.inOut",
+        onStart: applyLook,
+        onUpdate: applyLook,
+        onComplete: () => {
+          isAnimating.current = false;
+          gbFocused.current = true; // 줌인 후 매 프레임 roll 유지
+          onGameboyZoomComplete?.();
+        },
+      });
+    };
+
+    // 게임보이 줌아웃 (원위치) - up 벡터 리셋
+    window.zoomOutGameboy = () => {
+      if (isAnimating.current) return;
+      isAnimating.current = true;
+      gsap.ticker.tick();
+
+      camera.up.set(0, 1, 0); // roll 복구
+      gbFocused.current = false;
+
+      gsap.to(camera.position, {
+        x: position[0],
+        y: position[1],
+        z: position[2],
+        duration: 1.2,
+        ease: "power2.inOut",
+        onStart: () => camera.lookAt(...target),
+        onUpdate: () => camera.lookAt(...target),
+        onComplete: () => {
+          isAnimating.current = false;
+          isFocused.current = false;
+        },
+      });
+    };
+
     return () => {
       delete window.zoomToLaptop;
       delete window.zoomOut;
+      delete window.zoomToGameboy;
+      delete window.zoomOutGameboy;
     };
-  }, [camera, position, target, zoomPosition, zoomTarget, onZoomComplete]);
+  }, [camera, position, target, zoomPosition, zoomTarget, gbZoomPosition, gbZoomTarget, gbRoll, onZoomComplete, onGameboyZoomComplete]);
 
   useFrame((_, delta) => {
-    if (isFocused.current || isAnimating.current) return;
+    if (isAnimating.current) return;
+
+    // 게임보이에 줌인된 상태: 매 프레임 lookAt + roll (leva 실시간 반영)
+    if (gbFocused.current || gameboyActive) {
+      camera.position.set(gbZoomPosition[0], gbZoomPosition[1], gbZoomPosition[2]);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(...gbZoomTarget);
+      if (gbRoll) camera.rotateZ((gbRoll * Math.PI) / 180);
+      return;
+    }
+
+    if (isFocused.current) return;
 
     const lerpFactor = 1 - Math.pow(0.01, delta);
     smoothMouse.current.x += (mouse.current.x - smoothMouse.current.x) * lerpFactor;
