@@ -12,6 +12,7 @@ export function CameraController({
   minPolar,
   maxPolar,
   onZoomComplete,
+  isMobile = false,
 }) {
   const { camera } = useThree();
   const mouse = useRef({ x: 0, y: 0 });
@@ -38,15 +39,41 @@ export function CameraController({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 마우스 이벤트
+  // ===== 입력 처리: 데스크탑은 마우스, 모바일은 자이로/터치 =====
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    if (!isMobile) {
+      // 데스크탑: 마우스 이동
+      const handleMouseMove = (e) => {
+        mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+      };
+      window.addEventListener("mousemove", handleMouseMove);
+      return () => window.removeEventListener("mousemove", handleMouseMove);
+    }
+
+    // 모바일: 자이로(기기 기울임) → 실패 시 터치 드래그
+    const handleOrientation = (e) => {
+      // gamma: 좌우 기울임(-90~90), beta: 앞뒤 기울임(-180~180)
+      if (e.gamma == null || e.beta == null) return;
+      mouse.current.x = Math.max(-1, Math.min(1, e.gamma / 30));
+      mouse.current.y = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+    window.addEventListener("deviceorientation", handleOrientation);
+
+    // 터치 드래그 폴백
+    const handleTouchMove = (e) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      mouse.current.x = (t.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = (t.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+
+    return () => {
+      window.removeEventListener("deviceorientation", handleOrientation);
+      window.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [isMobile]);
 
   // 전역 줌 함수
   useEffect(() => {
@@ -114,8 +141,10 @@ export function CameraController({
     smoothMouse.current.x += (mouse.current.x - smoothMouse.current.x) * lerpFactor;
     smoothMouse.current.y += (mouse.current.y - smoothMouse.current.y) * lerpFactor;
 
-    camera.position.x = position[0] + smoothMouse.current.x * 0.05;
-    camera.position.y = position[1] - smoothMouse.current.y * 0.05;
+    // 모바일은 패럴랙스 폭을 약간 줄임 (자이로가 민감해서)
+    const amp = isMobile ? 0.035 : 0.05;
+    camera.position.x = position[0] + smoothMouse.current.x * amp;
+    camera.position.y = position[1] - smoothMouse.current.y * amp;
     camera.position.z = position[2];
 
     camera.lookAt(...target);

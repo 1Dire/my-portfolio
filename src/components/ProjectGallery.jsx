@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { projects } from "@/data/projects";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const TAPE_COLORS = [
   "rgba(255, 220, 120, 0.55)",
@@ -51,6 +52,7 @@ const STICKER_ROT = [-4, 3, -2, 5, -3, 2, -5, 4];
 
 export function ProjectGallery({ onClose }) {
   const [activeTab, setActiveTab] = useState("toy");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -142,7 +144,7 @@ export function ProjectGallery({ onClose }) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "28px 48px 18px",
+        padding: isMobile ? "20px 20px 14px" : "28px 48px 18px",
         flexShrink: 0,
       }}>
         <div>
@@ -158,7 +160,7 @@ export function ProjectGallery({ onClose }) {
           <h1 style={{
             fontFamily: "'Patrick Hand', cursive",
             color: "rgba(248, 238, 205, 0.95)",
-            fontSize: 32,
+            fontSize: isMobile ? 26 : 32,
             fontWeight: 600,
             margin: 0,
           }}>
@@ -192,7 +194,7 @@ export function ProjectGallery({ onClose }) {
       <div style={{
         display: "flex",
         gap: 4,
-        padding: "0 48px 16px",
+        padding: isMobile ? "0 20px 14px" : "0 48px 16px",
         borderBottom: "1px solid rgba(200, 175, 110, 0.15)",
         flexShrink: 0,
       }}>
@@ -205,13 +207,15 @@ export function ProjectGallery({ onClose }) {
       </div>
 
       {/* 갤러리 */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "40px 48px 32px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "24px 20px 24px" : "40px 48px 32px" }}>
         <div
           key={activeTab}
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))",
-            gap: 36,
+            gridTemplateColumns: isMobile
+              ? "repeat(2, 1fr)"
+              : "repeat(auto-fill, minmax(250px, 1fr))",
+            gap: isMobile ? 16 : 36,
             animation: "slideUp 0.35s ease",
           }}
         >

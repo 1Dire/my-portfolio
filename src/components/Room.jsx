@@ -2,13 +2,17 @@ import { useEffect, useRef } from "react";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { useLaptopScreenTexture } from "@/hooks/useLaptopScreenTexture";
+import { useCalendarTexture } from "@/hooks/useCalendarTexture";
 
 export function Room({ controls, onLaptopClick }) {
   const { scene } = useGLTF("/models/room.glb");
   const materialsRef = useRef({});
 
-  // 노트북 화면용 터미널 CanvasTexture
+  // 노트북 화면용 CanvasTexture
   const laptopScreenTexture = useLaptopScreenTexture();
+
+  // 달력용 오늘 날짜 CanvasTexture
+  const calendarTexture = useCalendarTexture();
 
   // 언마운트 시 커서 복구 (pointer로 남는 것 방지)
   useEffect(() => {
@@ -18,11 +22,17 @@ export function Room({ controls, onLaptopClick }) {
   }, []);
 
   const {
-    gameRoughness, gameMetalness,
-    laptopRoughness, laptopMetalness,
-    deskObjRoughness, deskObjMetalness,
-    screenColor, screenRoughness, screenOpacity,
-    bezelColor, bezelRoughness,
+    gameRoughness,
+    gameMetalness,
+    laptopRoughness,
+    laptopMetalness,
+    deskObjRoughness,
+    deskObjMetalness,
+    screenColor,
+    screenRoughness,
+    screenOpacity,
+    bezelColor,
+    bezelRoughness,
   } = controls;
 
   const textures = useTexture([
@@ -52,13 +62,18 @@ export function Room({ controls, onLaptopClick }) {
       벽지_Baked: new THREE.MeshBasicMaterial({ map: wallTxt }),
       TodoList_Baked: new THREE.MeshBasicMaterial({ map: wallObjTxt }),
       책상_Baked: new THREE.MeshBasicMaterial({ map: tableTxt }),
-      달력001: new THREE.MeshBasicMaterial({ map: wallObjTxt }),
+      // 달력 몸체 = 베이크 텍스처
+      달력: new THREE.MeshBasicMaterial({ map: wallObjTxt }),
+      // 달력 앞면 = 오늘 날짜 텍스처
+      달력앞면: new THREE.MeshBasicMaterial({ map: calendarTexture, toneMapped: false }),
+      램프: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
+      컵: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
       게임기몸통_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
-      노트북_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt, side: THREE.DoubleSide }),
+      노트북_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
       책상소품_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
       게임기화면: new THREE.MeshStandardMaterial({ transparent: true }),
       게임기화면근처: new THREE.MeshStandardMaterial(),
-      // 노트북 화면 = 터미널 텍스처 (스스로 빛나는 디스플레이)
+      // 노트북 화면 = CanvasTexture (스스로 빛나는 디스플레이)
       노트북화면: new THREE.MeshBasicMaterial({
         map: laptopScreenTexture,
         toneMapped: false,
@@ -88,7 +103,16 @@ export function Room({ controls, onLaptopClick }) {
     return () => {
       Object.values(mats).forEach((m) => m.dispose());
     };
-  }, [scene, floorTxt, tableTxt, tableObjTxt, wallTxt, wallObjTxt, laptopScreenTexture]);
+  }, [
+    scene,
+    floorTxt,
+    tableTxt,
+    tableObjTxt,
+    wallTxt,
+    wallObjTxt,
+    laptopScreenTexture,
+    calendarTexture,
+  ]);
 
   // leva 값 변경 시 머티리얼 속성만 업데이트 (새 객체 생성 X)
   useEffect(() => {
@@ -111,11 +135,17 @@ export function Room({ controls, onLaptopClick }) {
     m.게임기화면근처.color.set(bezelColor);
     m.게임기화면근처.roughness = bezelRoughness;
   }, [
-    gameRoughness, gameMetalness,
-    laptopRoughness, laptopMetalness,
-    deskObjRoughness, deskObjMetalness,
-    screenColor, screenRoughness, screenOpacity,
-    bezelColor, bezelRoughness,
+    gameRoughness,
+    gameMetalness,
+    laptopRoughness,
+    laptopMetalness,
+    deskObjRoughness,
+    deskObjMetalness,
+    screenColor,
+    screenRoughness,
+    screenOpacity,
+    bezelColor,
+    bezelRoughness,
   ]);
 
   return (

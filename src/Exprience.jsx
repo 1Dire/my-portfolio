@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, Suspense } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Environment, Stats } from "@react-three/drei";
 import { useSceneControls } from "@/hooks/useSceneControls";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { CameraController } from "@/components/CameraController";
 import { Room } from "@/components/Room";
 import { ProjectGallery } from "@/components/ProjectGallery";
@@ -18,6 +19,7 @@ const Prewarmer = () => {
 
 const Experience = () => {
   const controls = useSceneControls();
+  const isMobile = useIsMobile();
   const [showGallery, setShowGallery] = useState(false);
 
   const {
@@ -48,14 +50,17 @@ const Experience = () => {
     setShowGallery(true);
   }, []);
 
+  // 모바일은 FOV를 살짝 넓혀 세로 화면에서 방이 더 보이게
+  const fov = isMobile ? 85 : 75;
+
   return (
     <div id="experience" style={{ width: "100vw", height: "100vh" }}>
       <LoadingScreen />
 
       <Canvas
-        camera={{ position: [-0.555, 1.342, -0.222], fov: 75 }}
-        gl={{ antialias: true, alpha: false }}
-        dpr={[1, 2]}
+        camera={{ position: [-0.555, 1.342, -0.222], fov }}
+        gl={{ antialias: !isMobile, alpha: false, powerPreference: "high-performance" }}
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
         flat
         frameloop="always"
       >
@@ -71,6 +76,7 @@ const Experience = () => {
           minPolar={minPolar}
           maxPolar={maxPolar}
           onZoomComplete={handleZoomComplete}
+          isMobile={isMobile}
         />
         <Suspense fallback={null}>
           <Environment
