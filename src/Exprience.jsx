@@ -1,12 +1,18 @@
 import { useState, useMemo, useCallback, useEffect, Suspense } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Environment, Stats } from "@react-three/drei";
+import { Leva } from "leva";
 import { useSceneControls } from "@/hooks/useSceneControls";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { CameraController } from "@/components/CameraController";
 import { Room } from "@/components/Room";
 import { ProjectGallery } from "@/components/ProjectGallery";
 import { LoadingScreen } from "@/components/LoadingScreen";
+
+// URL 해시에 #debug 가 있으면 디버그 모드 (leva 패널 + Stats 표시)
+const isDebug =
+  typeof window !== "undefined" &&
+  window.location.hash.toLowerCase().includes("debug");
 
 // GPU 사전 컴파일 - 첫 클릭 딜레이 방지
 const Prewarmer = () => {
@@ -55,6 +61,9 @@ const Experience = () => {
 
   return (
     <div id="experience" style={{ width: "100vw", height: "100vh" }}>
+      {/* leva 패널: #debug 일 때만 표시 */}
+      <Leva hidden={!isDebug} />
+
       <LoadingScreen />
 
       <Canvas
@@ -64,7 +73,7 @@ const Experience = () => {
         flat
         frameloop="always"
       >
-        {import.meta.env.DEV && <Stats />}
+        {isDebug && <Stats />}
         <Prewarmer />
         <CameraController
           position={position}
