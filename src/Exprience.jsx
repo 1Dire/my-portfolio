@@ -10,7 +10,7 @@ import { CoffeeSteam } from "@/components/CoffeeSteam";
 import { GameboyPad } from "@/components/GameboyPad";
 import { useGameboy } from "@/hooks/useGameboy";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { FiSun, FiMoon, FiVolume2, FiVolumeX } from "react-icons/fi";
+import { NightOverlay, RoomControls, BottomLinks, CreditsModal } from "@/components/UIOverlay";
 import { ProjectGallery } from "@/components/ProjectGallery";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
@@ -28,27 +28,12 @@ const Prewarmer = () => {
   return null;
 };
 
-const ctrlBtnStyle = {
-  width: 44,
-  height: 44,
-  borderRadius: 12,
-  border: "1px solid rgba(200, 175, 110, 0.35)",
-  background: "rgba(58, 68, 52, 0.75)",
-  backdropFilter: "blur(6px)",
-  WebkitBackdropFilter: "blur(6px)",
-  color: "rgba(245, 230, 185, 0.92)",
-  fontSize: 18,
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
 const Experience = () => {
   const controls = useSceneControls();
   const isMobile = useIsMobile();
   const [showGallery, setShowGallery] = useState(false);
   const [playingGame, setPlayingGame] = useState(false);
+  const [showCredits, setShowCredits] = useState(false);
 
   // 주간/야간 모드 ("day" | "night"). 현재 시각으로 초기 결정 (19시~6시 = 야간)
   const [dayNight, setDayNight] = useState(() => {
@@ -59,8 +44,12 @@ const Experience = () => {
   // 게임보이 (texture는 Room에, api는 패드+Room 공용)
   const { texture: gbTexture, api: gbApi } = useGameboy();
 
-  // 방 배경음악 (시작 버튼 클릭 시 시작)
-  const bgm = useBackgroundMusic("/audio/room-bgm.mp3", { volume: 0.3 });
+  // 방/게임 배경음악 (시작 버튼 클릭 시 시작)
+  const bgm = useBackgroundMusic({
+    roomSrc: "/audio/room-bgm.mp3",
+    gameSrc: "/audio/game-bgm.mp3",
+    volume: 0.3,
+  });
 
   // 시작: 음악 여부 + 현재 모드 적용
   const handleStart = useCallback((withMusic) => {
@@ -74,10 +63,11 @@ const Experience = () => {
     bgm.setMode(dayNight);
   }, [dayNight, bgm]);
 
-  // 게임 플레이 상태 → 루프 시작/정지 (부하 제어)
+  // 게임 플레이 상태 → 루프 시작/정지 (부하 제어) + 음악 트랙 교체
   useEffect(() => {
     gbApi.setActive(playingGame);
-  }, [playingGame, gbApi]);
+    bgm.setTrack(playingGame ? "game" : "room");
+  }, [playingGame, gbApi, bgm]);
 
   const {
     envIntensity,
@@ -213,54 +203,23 @@ const Experience = () => {
 
       <GameboyPad visible={playingGame} api={gbApi} onExit={handleGameClose} />
 
-      {/* 야간 모드 화면 틴트 (어둡고 푸른 오버레이) */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 50,
-          pointerEvents: "none",
-          background:
-            "radial-gradient(ellipse at 50% 40%, rgba(20,30,70,0) 0%, rgba(15,22,55,0.45) 100%)",
-          opacity: dayNight === "night" ? 1 : 0,
-          transition: "opacity 1.2s ease",
-        }}
-      />
+      <NightOverlay active={dayNight === "night"} />
 
-      {/* 우측 상단 컨트롤 */}
-      <div
-        style={{
-          position: "fixed",
-          top: 16,
-          right: 16,
-          zIndex: 120,
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
-        {/* 주간/야간 토글 */}
-        <button
-          onClick={() => setDayNight((m) => (m === "day" ? "night" : "day"))}
-          aria-label={dayNight === "day" ? "야간 모드로" : "주간 모드로"}
-          style={ctrlBtnStyle}
-        >
-          {dayNight === "day" ? <FiSun size={20} /> : <FiMoon size={19} />}
-        </button>
+      {/* 갤러리/게임 중엔 우측 컨트롤 숨김 (모달과 겹침 방지) */}
+      {!showGallery && !playingGame && (
+        <>
+          <RoomControls
+            dayNight={dayNight}
+            onToggleDayNight={() => setDayNight((m) => (m === "day" ? "night" : "day"))}
+            bgm={bgm}
+          />
+          <BottomLinks onOpenCredits={() => setShowCredits(true)} />
+        </>
+      )}
 
-        {/* 음소거 (음악 시작된 경우만) */}
-        {bgm.started && (
-          <button
-            onClick={bgm.toggleMute}
-            aria-label={bgm.muted ? "음악 켜기" : "음악 끄기"}
-            style={ctrlBtnStyle}
-          >
-            {bgm.muted ? <FiVolumeX size={20} /> : <FiVolume2 size={20} />}
-          </button>
-        )}
-      </div>
+      <CreditsModal open={showCredits} onClose={() => setShowCredits(false)} />
     </div>
   );
 };
 
-export default Experience; 
+export default Experience;

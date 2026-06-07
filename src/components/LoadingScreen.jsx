@@ -1,5 +1,5 @@
 import { useProgress } from "@react-three/drei";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const LOADING_MESSAGES = [
   "cleaning the room",
@@ -16,40 +16,55 @@ const LOADING_MESSAGES = [
 
 export function LoadingScreen({ onEnter }) {
   const { progress, active } = useProgress();
-  const [done, setDone] = useState(false);
+  const [loadFinished, setLoadFinished] = useState(false); // 실제 로딩 끝
+  const [done, setDone] = useState(false);                 // 화면 완료(메시지 주기에 맞춤)
   const [showEnter, setShowEnter] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(false);
   const [msgIndex, setMsgIndex] = useState(0);
 
-  // 로딩 완료 감지
+  const loadFinishedRef = useRef(false);
+
+  // 실제 로딩 완료 감지 (메시지와 무관하게 플래그만 세움)
   useEffect(() => {
     if (!active && progress >= 100) {
-      const t = setTimeout(() => setDone(true), 600);
+      const t = setTimeout(() => {
+        loadFinishedRef.current = true;
+        setLoadFinished(true);
+      }, 300);
       return () => clearTimeout(t);
     }
   }, [active, progress]);
 
-  // 안전장치: progress 이벤트가 안 와도 일정 시간 후 완료
+  // 안전장치: progress 이벤트가 안 와도 일정 시간 후 강제 완료
   useEffect(() => {
-    const fallback = setTimeout(() => setDone(true), 8000);
+    const fallback = setTimeout(() => {
+      loadFinishedRef.current = true;
+      setLoadFinished(true);
+    }, 8000);
     return () => clearTimeout(fallback);
   }, []);
+
+  // 메시지 순환 — 자기 페이스(1.4s)로 계속.
+  // 단, 한 메시지 주기가 끝나는 시점에 이미 로딩이 끝나있으면 그때 완료 처리.
+  useEffect(() => {
+    if (done) return;
+    const interval = setInterval(() => {
+      if (loadFinishedRef.current) {
+        // 메시지 주기 경계 → 자연스럽게 완료로 마무리
+        setDone(true);
+      } else {
+        setMsgIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [done]);
 
   // done되면 문구 페이드아웃(0.4s) 후 Enter 버튼 등장
   useEffect(() => {
     if (!done) return;
     const t = setTimeout(() => setShowEnter(true), 450);
     return () => clearTimeout(t);
-  }, [done]);
-
-  // 로딩 중 문구 순환
-  useEffect(() => {
-    if (done) return;
-    const interval = setInterval(() => {
-      setMsgIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
-    }, 1400);
-    return () => clearInterval(interval);
   }, [done]);
 
   const handleEnter = (withMusic) => {
@@ -61,7 +76,7 @@ export function LoadingScreen({ onEnter }) {
   if (gone) return null;
 
   // 표시용 진행률 (완료 시 100 고정)
-  const shownProgress = done ? 100 : Math.round(progress);
+  const shownProgress = done || loadFinished ? 100 : Math.round(progress);
 
   return (
     <div
@@ -97,78 +112,61 @@ export function LoadingScreen({ onEnter }) {
           0%, 100% { opacity: 0.85; }
           50% { opacity: 1; }
         }
-        .ls-msg { display: inline-block; animation: ls-msg 0.5s cubic-bezier(0.22,1,0.36,1); }
+        .ls-msg { display: inline-block; animation: ls-msg 0.3s cubic-bezier(0.22,1,0.36,1); }
         .ls-msg-out { display: inline-block; animation: ls-msg-out 0.4s ease forwards; }
         .ls-enter { animation: ls-rise 0.6s ease both, ls-pulse 2s ease-in-out infinite 0.6s; transition: background 0.2s; }
         .ls-enter:hover { background: rgba(210,185,120,0.28) !important; }
       `}</style>
 
       {/* 라벨 */}
-      <p
-        style={{
-          fontFamily: "'Patrick Hand', cursive",
-          color: "rgba(210, 190, 130, 0.5)",
-          fontSize: 17,
-          margin: "0 0 6px",
-          letterSpacing: 3,
-        }}
-      >
+      <p style={{
+        fontFamily: "'Patrick Hand', cursive",
+        color: "rgba(210, 190, 130, 0.5)",
+        fontSize: 17,
+        margin: "0 0 6px",
+        letterSpacing: 3,
+      }}>
         — portfolio
       </p>
 
       {/* 타이틀 */}
-      <h1
-        style={{
-          fontFamily: "'Patrick Hand', cursive",
-          color: "rgba(248, 238, 205, 0.95)",
-          fontSize: 40,
-          margin: "0 0 28px",
-          letterSpacing: 0.5,
-        }}
-      >
+      <h1 style={{
+        fontFamily: "'Patrick Hand', cursive",
+        color: "rgba(248, 238, 205, 0.95)",
+        fontSize: 40,
+        margin: "0 0 28px",
+        letterSpacing: 0.5,
+      }}>
         dire's room
       </h1>
 
       {/* 진행 바 */}
-      <div
-        style={{
-          width: 280,
-          height: 6,
-          background: "rgba(0,0,0,0.22)",
+      <div style={{
+        width: 280,
+        height: 6,
+        background: "rgba(0,0,0,0.22)",
+        borderRadius: 3,
+        overflow: "hidden",
+      }}>
+        <div style={{
+          width: `${shownProgress}%`,
+          height: "100%",
+          background: "rgba(210, 185, 120, 0.9)",
           borderRadius: 3,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${shownProgress}%`,
-            height: "100%",
-            background: "rgba(210, 185, 120, 0.9)",
-            borderRadius: 3,
-            transition: "width 0.4s ease",
-          }}
-        />
+          transition: "width 0.4s ease",
+        }} />
       </div>
 
       {/* 하단 영역: 문구(로딩) → 페이드아웃(완료) → Enter 버튼 */}
-      <div
-        style={{
-          marginTop: 24,
-          minHeight: 52,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div style={{
+        marginTop: 24,
+        minHeight: 52,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
         {showEnter ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              alignItems: "center",
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
             <button
               className="ls-enter"
               onClick={() => handleEnter(true)}
@@ -184,7 +182,7 @@ export function LoadingScreen({ onEnter }) {
                 letterSpacing: 1,
               }}
             >
-              Come on in
+              ♪ Come on in
             </button>
             <button
               onClick={() => handleEnter(false)}

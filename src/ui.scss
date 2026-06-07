@@ -1,0 +1,195 @@
+// ===================== UI 오버레이 스타일 =====================
+// dire's room — 우측 컨트롤, 하단 링크, 크레딧 모달, 야간 틴트
+
+@import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
+
+
+// 색상 토큰
+$panel-bg: rgba(58, 68, 52, 0.75);
+$panel-bg-solid: rgba(58, 68, 52, 0.96);
+$border: rgba(200, 175, 110, 0.35);
+$border-soft: rgba(200, 175, 110, 0.3);
+$text: rgba(245, 230, 185, 0.92);
+$text-dim: rgba(210, 190, 130, 0.65);
+$font: 'Patrick Hand', cursive;
+
+// 공통 둥근 버튼 (주간야간/음소거/깃허브/크레딧)
+.ui-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid $border;
+  background: $panel-bg;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: $text;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: background 0.18s ease, transform 0.12s ease, border-color 0.18s ease;
+
+  &:hover {
+    background: rgba(72, 84, 64, 0.85);
+    border-color: rgba(200, 175, 110, 0.55);
+  }
+  &:active {
+    transform: scale(0.93);
+  }
+}
+
+// 컨트롤 묶음 (우측 상단 / 우측 하단)
+.ui-cluster {
+  position: fixed;
+  z-index: 120;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+
+  &--top-right { top: 16px; right: 16px; }
+  &--bottom-right { bottom: 16px; right: 16px; }
+}
+
+// 야간 틴트 오버레이
+.night-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(20, 30, 70, 0) 0%,
+    rgba(15, 22, 55, 0.45) 100%
+  );
+  opacity: 0;
+  transition: opacity 1.2s ease;
+
+  &.is-night { opacity: 1; }
+}
+
+// ===================== 크레딧 모달 =====================
+.credits {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 46, 34, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: credits-fade 0.25s ease;
+
+  // 코르크보드에 핀으로 꽂은 메모지
+  &__note {
+    position: relative;
+    width: min(400px, 88vw);
+    background: #f4ecd8;
+    color: #4a3f2a;
+    border-radius: 3px;
+    padding: 32px 28px 26px;
+    font-family: $font;
+    transform: rotate(-1.5deg);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.4);
+    animation: credits-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  // 빨간 핀
+  &__pin {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #e05c4a, #b0301f);
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.35);
+  }
+
+  &__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #8a7a52;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover { background: rgba(0, 0, 0, 0.07); color: #4a3f2a; }
+  }
+
+  &__title {
+    margin: 4px 0 2px;
+    font-size: 34px;
+    line-height: 1.1;
+    letter-spacing: 0.5px;
+  }
+
+  &__subtitle {
+    margin: 0 0 18px;
+    font-size: 16px;
+    color: #8a7a52;
+  }
+
+  &__list {
+    border-top: 1.5px dashed #cdbd95;
+    padding-top: 14px;
+    font-size: 17px;
+    line-height: 1.95;
+
+    p { margin: 0; }
+  }
+
+  &__label {
+    color: #9a8a5e;
+    font-size: 15px;
+    margin-bottom: 4px !important;
+  }
+
+  &__link {
+    color: #6b5a2e;
+    text-decoration-color: rgba(107, 90, 46, 0.5);
+    &:hover { color: #4a3f2a; }
+  }
+
+  &__socials {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+  }
+
+  &__github {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 15px;
+    border-radius: 8px;
+    background: #3a4434;
+    color: #f4ecd8;
+    text-decoration: none;
+    font-size: 16px;
+    transition: background 0.18s ease, transform 0.12s ease;
+
+    &:hover { background: #4a5743; }
+    &:active { transform: scale(0.96); }
+  }
+}
+
+@keyframes credits-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes credits-rise {
+  from { opacity: 0; transform: translateY(12px) rotate(-1.5deg); }
+  to { opacity: 1; transform: translateY(0) rotate(-1.5deg); }
+}

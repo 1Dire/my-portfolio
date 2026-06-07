@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback } from "react";
  * props:
  *   visible: boolean
  *   api: useGameboy의 api (press/up/down/left/right/back)
- *   onExit: ESC/나가기 콜백
+ *   onExit: ESC / exit 콜백
  */
 export function GameboyPad({ visible, api, onExit }) {
   const [active, setActive] = useState({}); // 어떤 키가 눌렸는지 (반짝용)
@@ -99,10 +99,10 @@ export function GameboyPad({ visible, api, onExit }) {
         <Key id="a" label="A" sub="JUMP/OK" keyName="SPACE" active={active.a} fire={fire} round />
       </div>
 
-      {/* 상단 우측: 나가기 */}
+      {/* 상단 우측: exit */}
       <div style={styles.topBtns}>
         <button className="gb-key" style={styles.topBtn} onClick={onExit}>
-          ✕ 나가기
+          ✕ exit
         </button>
       </div>
     </div>
