@@ -52,9 +52,9 @@ export function LoadingScreen({ onEnter }) {
     return () => clearInterval(interval);
   }, [done]);
 
-  const handleEnter = () => {
+  const handleEnter = (withMusic) => {
     setLeaving(true);
-    onEnter?.();
+    onEnter?.(withMusic);
     setTimeout(() => setGone(true), 700);
   };
 
@@ -104,70 +104,105 @@ export function LoadingScreen({ onEnter }) {
       `}</style>
 
       {/* 라벨 */}
-      <p style={{
-        fontFamily: "'Patrick Hand', cursive",
-        color: "rgba(210, 190, 130, 0.5)",
-        fontSize: 17,
-        margin: "0 0 6px",
-        letterSpacing: 3,
-      }}>
+      <p
+        style={{
+          fontFamily: "'Patrick Hand', cursive",
+          color: "rgba(210, 190, 130, 0.5)",
+          fontSize: 17,
+          margin: "0 0 6px",
+          letterSpacing: 3,
+        }}
+      >
         — portfolio
       </p>
 
       {/* 타이틀 */}
-      <h1 style={{
-        fontFamily: "'Patrick Hand', cursive",
-        color: "rgba(248, 238, 205, 0.95)",
-        fontSize: 40,
-        margin: "0 0 28px",
-        letterSpacing: 0.5,
-      }}>
+      <h1
+        style={{
+          fontFamily: "'Patrick Hand', cursive",
+          color: "rgba(248, 238, 205, 0.95)",
+          fontSize: 40,
+          margin: "0 0 28px",
+          letterSpacing: 0.5,
+        }}
+      >
         dire's room
       </h1>
 
       {/* 진행 바 */}
-      <div style={{
-        width: 280,
-        height: 6,
-        background: "rgba(0,0,0,0.22)",
-        borderRadius: 3,
-        overflow: "hidden",
-      }}>
-        <div style={{
-          width: `${shownProgress}%`,
-          height: "100%",
-          background: "rgba(210, 185, 120, 0.9)",
+      <div
+        style={{
+          width: 280,
+          height: 6,
+          background: "rgba(0,0,0,0.22)",
           borderRadius: 3,
-          transition: "width 0.4s ease",
-        }} />
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${shownProgress}%`,
+            height: "100%",
+            background: "rgba(210, 185, 120, 0.9)",
+            borderRadius: 3,
+            transition: "width 0.4s ease",
+          }}
+        />
       </div>
 
       {/* 하단 영역: 문구(로딩) → 페이드아웃(완료) → Enter 버튼 */}
-      <div style={{
-        marginTop: 24,
-        minHeight: 52,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
+      <div
+        style={{
+          marginTop: 24,
+          minHeight: 52,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         {showEnter ? (
-          <button
-            className="ls-enter"
-            onClick={handleEnter}
+          <div
             style={{
-              fontFamily: "'Patrick Hand', cursive",
-              fontSize: 22,
-              color: "rgba(245, 230, 185, 0.95)",
-              background: "transparent",
-              border: "1px solid rgba(200, 175, 110, 0.4)",
-              borderRadius: 8,
-              padding: "9px 38px",
-              cursor: "pointer",
-              letterSpacing: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              alignItems: "center",
             }}
           >
-            Enter →
-          </button>
+            <button
+              className="ls-enter"
+              onClick={() => handleEnter(true)}
+              style={{
+                fontFamily: "'Patrick Hand', cursive",
+                fontSize: 22,
+                color: "rgba(245, 230, 185, 0.95)",
+                background: "transparent",
+                border: "1px solid rgba(200, 175, 110, 0.4)",
+                borderRadius: 8,
+                padding: "9px 38px",
+                cursor: "pointer",
+                letterSpacing: 1,
+              }}
+            >
+              Come on in
+            </button>
+            <button
+              onClick={() => handleEnter(false)}
+              style={{
+                fontFamily: "'Patrick Hand', cursive",
+                fontSize: 15,
+                color: "rgba(210, 190, 130, 0.6)",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                letterSpacing: 0.5,
+                textDecoration: "underline",
+                textUnderlineOffset: 4,
+              }}
+            >
+              enter quietly
+            </button>
+          </div>
         ) : (
           <span
             key={done ? "out" : msgIndex}
