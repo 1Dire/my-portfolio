@@ -5,6 +5,10 @@ import gsap from "gsap";
 export function CameraController({
   position,
   target,
+  introActive = false,
+  introStart = [0.0, 2.1, 1.8],
+  introDuration = 2.0,
+  onIntroComplete,
   zoomPosition,
   zoomTarget,
   gbZoomPosition,
@@ -20,14 +24,31 @@ export function CameraController({
   isMobile = false,
 }) {
   const { camera } = useThree();
-  const mouse = useRef({ x: 0, y: 0 });
+  const mouse       = useRef({ x: 0, y: 0 });
   const smoothMouse = useRef({ x: 0, y: 0 });
-  const isFocused = useRef(false);
+  const isFocused   = useRef(false);
   const isAnimating = useRef(false);
-  const gbFocused = useRef(false); // 게임보이에 줌인된 상태
+  const gbFocused   = useRef(false);
   const initialized = useRef(false);
 
-  // GSAP ticker → R3F 루프에 동기화 (버벅임 방지)
+  // 항상 최신 leva 값을 ref로 유지 → 클로저 캡처 문제 해결
+  const positionRef      = useRef(position);
+  const targetRef        = useRef(target);
+  const zoomPositionRef  = useRef(zoomPosition);
+  const zoomTargetRef    = useRef(zoomTarget);
+  const gbZoomPositionRef = useRef(gbZoomPosition);
+  const gbZoomTargetRef  = useRef(gbZoomTarget);
+  const gbRollRef        = useRef(gbRoll);
+
+  useEffect(() => { positionRef.current      = position;      }, [position]);
+  useEffect(() => { targetRef.current        = target;        }, [target]);
+  useEffect(() => { zoomPositionRef.current  = zoomPosition;  }, [zoomPosition]);
+  useEffect(() => { zoomTargetRef.current    = zoomTarget;    }, [zoomTarget]);
+  useEffect(() => { gbZoomPositionRef.current = gbZoomPosition; }, [gbZoomPosition]);
+  useEffect(() => { gbZoomTargetRef.current  = gbZoomTarget;  }, [gbZoomTarget]);
+  useEffect(() => { gbRollRef.current        = gbRoll;        }, [gbRoll]);
+
+  // GSAP ticker → R3F 루프에 동기화
   useEffect(() => {
     gsap.ticker.remove(gsap.updateRoot);
     const unsub = addEffect((time) => gsap.updateRoot(time / 1000));
@@ -37,7 +58,7 @@ export function CameraController({
     };
   }, []);
 
-  // 카메라 초기 위치 - 최초 1회만
+  // 카메라 초기 위치 (최초 1회) - 인트로 시 멀리서 시작
   useEffect(() => {
     if (!initialized.current) {
       camera.position.set(...position);
@@ -45,10 +66,28 @@ export function CameraController({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ===== 입력 처리: 데스크탑은 마우스, 모바일은 자이로/터치 =====
+  // 인트로 애니메이션: introActive=true가 되면 멀리서 현재 위치로 날아옴
+  useEffect(() => {
+    if (!introActive) return;
+    const p = positionRef.current;
+    const t = targetRef.current;
+
+    camera.position.set(introStart[0], introStart[1], introStart[2]);
+    camera.lookAt(...t);
+    isAnimating.current = true;
+
+    gsap.to(camera.position, {
+      x: p[0], y: p[1], z: p[2],
+      duration: introDuration,
+      ease: "power3.inOut",
+      onUpdate: () => camera.lookAt(...targetRef.current),
+      onComplete: () => { isAnimating.current = false; onIntroComplete?.(); },
+    });
+  }, [introActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 입력 처리
   useEffect(() => {
     if (!isMobile) {
-      // 데스크탑: 마우스 이동
       const handleMouseMove = (e) => {
         mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
@@ -57,16 +96,13 @@ export function CameraController({
       return () => window.removeEventListener("mousemove", handleMouseMove);
     }
 
-    // 모바일: 자이로(기기 기울임) → 실패 시 터치 드래그
     const handleOrientation = (e) => {
-      // gamma: 좌우 기울임(-90~90), beta: 앞뒤 기울임(-180~180)
       if (e.gamma == null || e.beta == null) return;
       mouse.current.x = Math.max(-1, Math.min(1, e.gamma / 30));
       mouse.current.y = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
     };
     window.addEventListener("deviceorientation", handleOrientation);
 
-    // 터치 드래그 폴백
     const handleTouchMove = (e) => {
       if (e.touches.length !== 1) return;
       const t = e.touches[0];
@@ -81,27 +117,23 @@ export function CameraController({
     };
   }, [isMobile]);
 
-  // 전역 줌 함수
+  // 전역 줌 함수 (최초 1회 등록, ref로 최신값 참조)
   useEffect(() => {
     window.zoomToLaptop = () => {
       if (isAnimating.current) return;
       isFocused.current = true;
       isAnimating.current = true;
+      gsap.ticker.tick();
 
-      gsap.ticker.tick(); // 첫 클릭 딜레이 방지
+      const zp = zoomPositionRef.current;
+      const zt = zoomTargetRef.current;
 
       gsap.to(camera.position, {
-        x: zoomPosition[0],
-        y: zoomPosition[1],
-        z: zoomPosition[2],
+        x: zp[0], y: zp[1], z: zp[2],
         duration: 1.2,
         ease: "power2.inOut",
-        onStart: () => {
-          camera.lookAt(...zoomTarget);
-        },
-        onUpdate: () => {
-          camera.lookAt(...zoomTarget);
-        },
+        onStart:    () => camera.lookAt(...zt),
+        onUpdate:   () => camera.lookAt(...zoomTargetRef.current),
         onComplete: () => {
           isAnimating.current = false;
           onZoomComplete?.();
@@ -112,21 +144,17 @@ export function CameraController({
     window.zoomOut = () => {
       if (isAnimating.current) return;
       isAnimating.current = true;
-
       gsap.ticker.tick();
 
+      const p = positionRef.current;
+      const t = targetRef.current;
+
       gsap.to(camera.position, {
-        x: position[0],
-        y: position[1],
-        z: position[2],
+        x: p[0], y: p[1], z: p[2],
         duration: 1.2,
         ease: "power2.inOut",
-        onStart: () => {
-          camera.lookAt(...target);
-        },
-        onUpdate: () => {
-          camera.lookAt(...target);
-        },
+        onStart:    () => camera.lookAt(...t),
+        onUpdate:   () => camera.lookAt(...targetRef.current),
         onComplete: () => {
           isAnimating.current = false;
           isFocused.current = false;
@@ -134,53 +162,50 @@ export function CameraController({
       });
     };
 
-    // 게임보이 줌인
     window.zoomToGameboy = () => {
-      if (isAnimating.current || !gbZoomPosition) return;
+      if (isAnimating.current || !gbZoomPositionRef.current) return;
       isFocused.current = true;
       isAnimating.current = true;
       gsap.ticker.tick();
 
+      const gp = gbZoomPositionRef.current;
+      const gt = gbZoomTargetRef.current;
+
       const applyLook = () => {
-        camera.lookAt(...gbZoomTarget);
-        if (gbRoll) {
-          camera.rotateZ((gbRoll * Math.PI) / 180); // 화면 기울기 보정
-        }
+        camera.lookAt(...gbZoomTargetRef.current);
+        if (gbRollRef.current) camera.rotateZ((gbRollRef.current * Math.PI) / 180);
       };
 
       gsap.to(camera.position, {
-        x: gbZoomPosition[0],
-        y: gbZoomPosition[1],
-        z: gbZoomPosition[2],
+        x: gp[0], y: gp[1], z: gp[2],
         duration: 1.2,
         ease: "power2.inOut",
-        onStart: applyLook,
-        onUpdate: applyLook,
+        onStart:    applyLook,
+        onUpdate:   applyLook,
         onComplete: () => {
           isAnimating.current = false;
-          gbFocused.current = true; // 줌인 후 매 프레임 roll 유지
+          gbFocused.current = true;
           onGameboyZoomComplete?.();
         },
       });
     };
 
-    // 게임보이 줌아웃 (원위치) - up 벡터 리셋
     window.zoomOutGameboy = () => {
       if (isAnimating.current) return;
       isAnimating.current = true;
       gsap.ticker.tick();
 
-      camera.up.set(0, 1, 0); // roll 복구
+      camera.up.set(0, 1, 0);
       gbFocused.current = false;
 
+      const p = positionRef.current;
+
       gsap.to(camera.position, {
-        x: position[0],
-        y: position[1],
-        z: position[2],
+        x: p[0], y: p[1], z: p[2],
         duration: 1.2,
         ease: "power2.inOut",
-        onStart: () => camera.lookAt(...target),
-        onUpdate: () => camera.lookAt(...target),
+        onStart:    () => camera.lookAt(...targetRef.current),
+        onUpdate:   () => camera.lookAt(...targetRef.current),
         onComplete: () => {
           isAnimating.current = false;
           isFocused.current = false;
@@ -194,17 +219,18 @@ export function CameraController({
       delete window.zoomToGameboy;
       delete window.zoomOutGameboy;
     };
-  }, [camera, position, target, zoomPosition, zoomTarget, gbZoomPosition, gbZoomTarget, gbRoll, onZoomComplete, onGameboyZoomComplete]);
+  }, [camera, onZoomComplete, onGameboyZoomComplete]); // ref로 관리하므로 dep 최소화
 
   useFrame((_, delta) => {
     if (isAnimating.current) return;
 
-    // 게임보이에 줌인된 상태: 매 프레임 lookAt + roll (leva 실시간 반영)
     if (gbFocused.current || gameboyActive) {
-      camera.position.set(gbZoomPosition[0], gbZoomPosition[1], gbZoomPosition[2]);
+      const gp = gbZoomPositionRef.current;
+      const gt = gbZoomTargetRef.current;
+      camera.position.set(gp[0], gp[1], gp[2]);
       camera.up.set(0, 1, 0);
-      camera.lookAt(...gbZoomTarget);
-      if (gbRoll) camera.rotateZ((gbRoll * Math.PI) / 180);
+      camera.lookAt(...gt);
+      if (gbRollRef.current) camera.rotateZ((gbRollRef.current * Math.PI) / 180);
       return;
     }
 
@@ -214,13 +240,13 @@ export function CameraController({
     smoothMouse.current.x += (mouse.current.x - smoothMouse.current.x) * lerpFactor;
     smoothMouse.current.y += (mouse.current.y - smoothMouse.current.y) * lerpFactor;
 
-    // 모바일은 패럴랙스 폭을 약간 줄임 (자이로가 민감해서)
     const amp = isMobile ? 0.035 : 0.05;
-    camera.position.x = position[0] + smoothMouse.current.x * amp;
-    camera.position.y = position[1] - smoothMouse.current.y * amp;
-    camera.position.z = position[2];
+    const p   = positionRef.current;
+    camera.position.x = p[0] + smoothMouse.current.x * amp;
+    camera.position.y = p[1] - smoothMouse.current.y * amp;
+    camera.position.z = p[2];
 
-    camera.lookAt(...target);
+    camera.lookAt(...targetRef.current);
   });
 
   return null;

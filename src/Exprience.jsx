@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, Suspense } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { Environment, Stats } from "@react-three/drei";
 import { Leva } from "leva";
 import { useSceneControls } from "@/hooks/useSceneControls";
@@ -13,13 +14,13 @@ import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
 import { NightOverlay, RoomControls, BottomLinks, CreditsModal } from "@/components/UIOverlay";
 import { ProjectGallery } from "@/components/ProjectGallery";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { StarParticles } from "@/components/StarParticles";
 
-// URL 해시에 #debug 가 있으면 디버그 모드 (leva 패널 + Stats 표시)
 const isDebug =
   typeof window !== "undefined" &&
   window.location.hash.toLowerCase().includes("debug");
 
-// GPU 사전 컴파일 - 첫 클릭 딜레이 방지
+// GPU 사전 컴파일
 const Prewarmer = () => {
   const { gl, scene, camera } = useThree();
   useEffect(() => {
@@ -28,42 +29,57 @@ const Prewarmer = () => {
   return null;
 };
 
+// day/night HDR 둘 다 항상 마운트 → 첫 전환 시 로딩 없음
+// Three.js는 마지막에 추가된 Environment가 적용되므로
+// isNight=false → day만 강도 있음, isNight=true → night만 강도 있음
+const DualEnvironment = ({ isNight, dayIntensity, nightIntensity }) => (
+  <>
+    <Environment
+      files="/hdrs/day.exr"
+      environmentIntensity={isNight ? 0 : dayIntensity}
+      background={false}
+    />
+    <Environment
+      files="/hdrs/night.exr"
+      environmentIntensity={isNight ? nightIntensity : 0}
+      background={false}
+    />
+  </>
+);
+
 const Experience = () => {
   const controls = useSceneControls();
   const isMobile = useIsMobile();
   const [showGallery, setShowGallery] = useState(false);
   const [playingGame, setPlayingGame] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
+  const [introActive, setIntroActive] = useState(false);
+  const [introPlaying, setIntroPlaying] = useState(false);
 
-  // 주간/야간 모드 ("day" | "night"). 현재 시각으로 초기 결정 (19시~6시 = 야간)
   const [dayNight, setDayNight] = useState(() => {
     const h = new Date().getHours();
     return h >= 19 || h < 6 ? "night" : "day";
   });
 
-  // 게임보이 (texture는 Room에, api는 패드+Room 공용)
   const { texture: gbTexture, api: gbApi } = useGameboy();
 
-  // 방/게임 배경음악 (시작 버튼 클릭 시 시작)
   const bgm = useBackgroundMusic({
     roomSrc: "/audio/room-bgm.mp3",
     gameSrc: "/audio/game-bgm.mp3",
     volume: 0.3,
   });
 
-  // 시작: 음악 여부 + 현재 모드 적용
   const handleStart = useCallback((withMusic) => {
     if (withMusic) bgm.start();
-    // 시작 시점의 모드로 음악 음색 맞춤
     setTimeout(() => bgm.setMode(dayNight), 100);
+    setIntroActive(true);
+    setIntroPlaying(true);
   }, [bgm, dayNight]);
 
-  // 모드 바뀌면 음악 음색도 전환
   useEffect(() => {
     bgm.setMode(dayNight);
   }, [dayNight, bgm]);
 
-  // 게임 플레이 상태 → 루프 시작/정지 (부하 제어) + 음악 트랙 교체
   useEffect(() => {
     gbApi.setActive(playingGame);
     bgm.setTrack(playingGame ? "game" : "room");
@@ -89,60 +105,47 @@ const Experience = () => {
   const gbZoomPosition = useMemo(() => [gbZoomX, gbZoomY, gbZoomZ], [gbZoomX, gbZoomY, gbZoomZ]);
   const gbZoomTarget = useMemo(() => [gbZoomTargetX, gbZoomTargetY, gbZoomTargetZ], [gbZoomTargetX, gbZoomTargetY, gbZoomTargetZ]);
 
-  const handleLaptopClick = useCallback(() => {
-    window.zoomToLaptop?.();
-  }, []);
+  const handleIntroComplete = useCallback(() => { setIntroPlaying(false); }, []);
+  const handleLaptopClick = useCallback(() => { window.zoomToLaptop?.(); }, []);
+  const handleClose = useCallback(() => { setShowGallery(false); window.zoomOut?.(); }, []);
+  const handleZoomComplete = useCallback(() => { setShowGallery(true); }, []);
+  const handleGameboyClick = useCallback(() => { window.zoomToGameboy?.(); }, []);
+  const handleGameboyZoomComplete = useCallback(() => { setPlayingGame(true); }, []);
+  const handleGameClose = useCallback(() => { setPlayingGame(false); window.zoomOutGameboy?.(); }, []);
 
-  const handleClose = useCallback(() => {
-    setShowGallery(false);
-    window.zoomOut?.();
-  }, []);
-
-  const handleZoomComplete = useCallback(() => {
-    setShowGallery(true);
-  }, []);
-
-  // 게임보이 클릭 → 줌인
-  const handleGameboyClick = useCallback(() => {
-    window.zoomToGameboy?.();
-  }, []);
-
-  // 줌인 완료 → 게임 플레이 활성화
-  const handleGameboyZoomComplete = useCallback(() => {
-    setPlayingGame(true);
-  }, []);
-
-  // 게임 종료 (ESC) → 줌아웃
-  const handleGameClose = useCallback(() => {
-    setPlayingGame(false);
-    window.zoomOutGameboy?.();
-  }, []);
-
-  // 게임 중 ESC로 나가기
   useEffect(() => {
     if (!playingGame) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") handleGameClose();
-    };
+    const onKey = (e) => { if (e.key === "Escape") handleGameClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [playingGame, handleGameClose]);
 
-  // 모바일은 FOV를 살짝 넓혀 세로 화면에서 방이 더 보이게
   const fov = isMobile ? 85 : 75;
 
-  // 커피 김 값 (useSceneControls의 "커피 김" 폴더)
   const {
     steamX, steamY, steamZ, steamW, steamH, steamOpacity,
     steamColor, steamSpeed, steamSway,
     steamContrastLow, steamContrastHigh, steamNoiseScale,
   } = controls;
 
+  const {
+    lampOn, lampColor, lampIntensity, lampDistance, lampDecay,
+    lampOffsetX, lampOffsetY, lampOffsetZ,
+    laptopGlowIntensityDay, laptopGlowIntensityNight,
+    gbGlowIntensityDay, gbGlowIntensityNight,
+    starCount, starSize, starSpeed, starOpacity,
+    starRangeX, starRangeY, starRangeZ,
+    starCenterX, starCenterY, starCenterZ,
+  } = controls;
+
+  const { introStartX, introStartY, introStartZ, introDuration } = controls;
+  const introStart = useMemo(() => [introStartX, introStartY, introStartZ], [introStartX, introStartY, introStartZ]);
+
+  const isNight = dayNight === "night";
+
   return (
     <div id="experience" style={{ width: "100vw", height: "100vh" }}>
-      {/* leva 패널: #debug 일 때만 표시 */}
       <Leva hidden={!isDebug} />
-
       <LoadingScreen onEnter={handleStart} />
 
       <Canvas
@@ -157,6 +160,10 @@ const Experience = () => {
         <CameraController
           position={position}
           target={target}
+          introActive={introActive}
+          introStart={introStart}
+          introDuration={introDuration}
+          onIntroComplete={handleIntroComplete}
           zoomPosition={zoomPosition}
           zoomTarget={zoomTarget}
           gbZoomPosition={gbZoomPosition}
@@ -172,19 +179,66 @@ const Experience = () => {
           isMobile={isMobile}
         />
         <Suspense fallback={null}>
-          <Environment
-            files={dayNight === "night" ? "/hdrs/night.exr" : "/hdrs/day.exr"}
-            environmentIntensity={dayNight === "night" ? envIntensity * 0.55 : envIntensity}
-            background={false}
+          {/* day/night HDR 둘 다 항상 마운트 → 전환 시 로딩 없이 즉시 전환 */}
+          <DualEnvironment
+            isNight={isNight}
+            dayIntensity={envIntensity}
+            nightIntensity={envIntensity * 0.55}
+          />
+          {/* 스탠드 조명 - 스탠드_Baked 위치 기준 */}
+          {/* 스탠드 pointLight - 전구 메시 위치 기준, 야간에만 */}
+          {lampOn && isNight && (
+            <pointLight
+              position={[
+                -0.529 + lampOffsetX,
+                1.281 + lampOffsetY,
+                -1.301 + lampOffsetZ,
+              ]}
+              color={lampColor}
+              intensity={lampIntensity}
+              distance={lampDistance}
+              decay={lampDecay}
+            />
+          )}
+          {/* 노트북 화면 빛번짐 */}
+          <pointLight
+            position={[-0.797, 0.95, -0.86]}
+            color="#a8c8ff"
+            intensity={isNight ? laptopGlowIntensityNight : laptopGlowIntensityDay}
+            distance={0.8}
+            decay={2}
+          />
+          {/* 게임보이 화면 빛번짐 */}
+          <pointLight
+            position={[-0.315, 0.85, -0.85]}
+            color="#8bac0f"
+            intensity={isNight ? gbGlowIntensityNight : gbGlowIntensityDay}
+            distance={0.5}
+            decay={2}
           />
           <Room
             controls={controls}
             onLaptopClick={handleLaptopClick}
             onGameboyClick={handleGameboyClick}
+            onToggleDayNight={() => setDayNight((m) => (m === "day" ? "night" : "day"))}
             playingGame={playingGame}
             gbTexture={gbTexture}
             gbApi={gbApi}
             dayNight={dayNight}
+            introPlaying={introPlaying}
+          />
+          <StarParticles
+            visible={isNight}
+            count={starCount}
+            size={starSize}
+            speed={starSpeed}
+            opacity={starOpacity}
+            rangeX={starRangeX}
+            rangeY={starRangeY}
+            rangeZ={starRangeZ}
+            centerX={starCenterX}
+            centerY={starCenterY}
+            centerZ={starCenterZ}
           />
           <CoffeeSteam
             position={[steamX, steamY, steamZ]}
@@ -201,12 +255,9 @@ const Experience = () => {
       </Canvas>
 
       {showGallery && <ProjectGallery onClose={handleClose} />}
-
       <GameboyPad visible={playingGame} api={gbApi} onExit={handleGameClose} />
+      <NightOverlay active={isNight} />
 
-      <NightOverlay active={dayNight === "night"} />
-
-      {/* 갤러리/게임 중엔 우측 컨트롤 숨김 (모달과 겹침 방지) */}
       {!showGallery && !playingGame && (
         <>
           <RoomControls
