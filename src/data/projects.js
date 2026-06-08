@@ -24,7 +24,7 @@ export const projects = [
     description: "A full-stack rebuild using Spring Boot and PostgreSQL, deployed on a self-managed Linux server.",
     image: "/images/hansan_3.png",
     tech: ["Spring Boot", "PostgreSQL", "Linux"],
-    link: "https://github.com/1Dire/booking",
+    github: "https://github.com/1Dire/booking",
     category: "work",
   },
   {
@@ -33,7 +33,7 @@ export const projects = [
     description: "End-to-end design and publishing for a Japanese women's fashion shop, including UI/UX, banners, and product pages.",
     image: "/images/2.png",
     tech: ["UI/UX", "Publishing", "HTML/CSS"],
-    link: "https://github.com/1Dire",
+
     category: "work",
   },
   {
@@ -42,7 +42,6 @@ export const projects = [
     description: "A responsive booking site with SMS API integration for automated confirmation messages to customers and staff.",
     image: "/images/3.jpg",
     tech: ["HTML/CSS", "JavaScript", "SMS API"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
   {
@@ -51,7 +50,6 @@ export const projects = [
     description: "A manufacturing execution system with documented frontend standards for team-wide development.",
     image: "/images/1.png",
     tech: ["MES", "Frontend", "Team Collaboration"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
   {
@@ -60,7 +58,6 @@ export const projects = [
     description: "An IoT data visualization and hazard alert system mapping the Hyundai Heavy Industries complex for real-time monitoring and control.",
     image: "/images/cityGas.png",
     tech: ["IoT", "Data Visualization", "Real-time"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
   {
@@ -69,7 +66,6 @@ export const projects = [
     description: "A promotional website for a 2020 personal mobility expo, built around a purple-themed design.",
     image: "/images/4.jpg",
     tech: ["HTML/CSS", "JavaScript", "Design"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
   {
@@ -78,7 +74,6 @@ export const projects = [
     description: "A registration page for a walking event with participant list collection and accompanying logo design.",
     image: "/images/5.png",
     tech: ["HTML/CSS", "JavaScript", "Logo Design"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
   {
@@ -87,7 +82,6 @@ export const projects = [
     description: "A mobile survey platform for subscriber data collection, featuring data visualization and Excel export.",
     image: "/images/6.png",
     tech: ["HTML/CSS", "JavaScript", "Data Visualization"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
   {
@@ -96,7 +90,6 @@ export const projects = [
     description: "A responsive corporate website designed around the company's brand colors.",
     image: "/images/8.jpg",
     tech: ["HTML/CSS", "JavaScript", "Responsive"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
   {
@@ -105,7 +98,6 @@ export const projects = [
     description: "A tablet-based digital catalog for offline product demos, themed in the company's signature orange and black.",
     image: "/images/9.png",
     tech: ["HTML/CSS", "JavaScript", "Tablet UI"],
-    link: "https://github.com/1Dire",
     category: "work",
   },
 
