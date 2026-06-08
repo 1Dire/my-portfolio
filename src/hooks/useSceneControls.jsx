@@ -48,6 +48,11 @@ export function useSceneControls() {
       steamContrastHigh: { value: 0.85, min: 0, max: 1, step: 0.01, label: "대비 상한" },
       steamNoiseScale: { value: 3.0, min: 0.5, max: 8, step: 0.1, label: "노이즈 촘촘함" },
     }),
+    달력: folder({
+      calendarOffsetX: { value: 0.0, min: -0.5, max: 0.5, step: 0.001, label: "오프셋 X" },
+      calendarOffsetY: { value: 0.0, min: -0.5, max: 0.5, step: 0.001, label: "오프셋 Y" },
+      calendarOffsetZ: { value: 0.0, min: -0.5, max: 0.5, step: 0.001, label: "오프셋 Z" },
+    }),
     게임기몸통: folder({
       gameRoughness: { value: 0.9, min: 0, max: 1, step: 0.05, label: "Roughness" },
       gameMetalness: { value: 0.0, min: 0, max: 1, step: 0.05, label: "Metalness" },

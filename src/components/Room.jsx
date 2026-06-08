@@ -1,83 +1,127 @@
 import { useEffect, useRef } from "react";
 import { useGLTF, useTexture } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useLaptopScreenTexture } from "@/hooks/useLaptopScreenTexture";
 import { useCalendarTexture } from "@/hooks/useCalendarTexture";
 
-export function Room({ controls, onLaptopClick, onGameboyClick, playingGame, gbTexture, gbApi }) {
-  const { scene } = useGLTF("/models/room.glb");
-  const materialsRef = useRef({});
+/**
+ * onBeforeCompile로 night 텍스처 mix를 기존 머티리얼에 주입.
+ * MeshBasicMaterial → map 색상에 mix
+ * MeshStandardMaterial → diffuseColor에 mix
+ * HDR/조명 영향 그대로 유지.
+ */
+function injectCrossfade(mat, nightTex, isStandard = false) {
+  mat.userData.shader = null;
 
-  // 노트북 호버 확대 효과용
-  const laptopMeshes = useRef([]);   // {mesh, baseScale} 배열
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.mapNight = { value: nightTex };
+    shader.uniforms.mixRatio = { value: 0.0 };
+
+    // fragment shader 상단에 uniform 선언 추가
+    shader.fragmentShader = shader.fragmentShader.replace(
+      "void main() {",
+      `uniform sampler2D mapNight;
+uniform float mixRatio;
+void main() {`
+    );
+
+    if (isStandard) {
+      // MeshStandardMaterial: diffuseColor 계산 직후 mix
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <map_fragment>",
+        `#include <map_fragment>
+{
+  vec4 nightSample = texture2D(mapNight, vMapUv);
+  diffuseColor = mix(diffuseColor, nightSample, mixRatio);
+}`
+      );
+    } else {
+      // MeshBasicMaterial: gl_FragColor 직전에 mix
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <map_fragment>",
+        `#include <map_fragment>
+{
+  vec4 nightSample = texture2D(mapNight, vMapUv);
+  diffuseColor = mix(diffuseColor, nightSample, mixRatio);
+}`
+      );
+    }
+
+    mat.userData.shader = shader;
+  };
+
+  // needsUpdate 없이 uniform만 바꾸면 됨
+  mat.getMixRatio = () => mat.userData.shader?.uniforms.mixRatio.value ?? 0;
+  mat.setMixRatio = (v) => {
+    if (mat.userData.shader) mat.userData.shader.uniforms.mixRatio.value = v;
+  };
+  mat.setNightTex = (tex) => {
+    if (mat.userData.shader) mat.userData.shader.uniforms.mapNight.value = tex;
+  };
+
+  return mat;
+}
+
+export function Room({ controls, onLaptopClick, onGameboyClick, playingGame, gbTexture, gbApi, dayNight = "day" }) {
+  const { scene } = useGLTF("/models/room.glb");
+  const { gl, camera } = useThree(); // shader 강제 컴파일용
+  const materialsRef = useRef({});
+  const calendarMeshRef = useRef(null);
+  const crossfadeMatsRef = useRef([]); // injectCrossfade된 머티리얼 목록
+
+  const laptopMeshes = useRef([]);
   const hovered = useRef(false);
-  const gameboyMeshes = useRef([]);  // 게임보이 메시들
+  const gameboyMeshes = useRef([]);
   const gbHovered = useRef(false);
 
-  // 노트북 화면용 CanvasTexture
   const laptopScreenTexture = useLaptopScreenTexture();
-
-  // 달력용 오늘 날짜 CanvasTexture
   const calendarTexture = useCalendarTexture();
 
-  // 언마운트 시 커서 복구 (pointer로 남는 것 방지)
+  // 크로스페이드 ratio (0=day, 1=night)
+  const mixRatioRef  = useRef(dayNight === "night" ? 1.0 : 0.0);
+  const mixTargetRef = useRef(dayNight === "night" ? 1.0 : 0.0);
+
   useEffect(() => {
-    return () => {
-      document.body.style.cursor = "default";
-    };
+    mixTargetRef.current = dayNight === "night" ? 1.0 : 0.0;
+  }, [dayNight]);
+
+  useEffect(() => {
+    return () => { document.body.style.cursor = "default"; };
   }, []);
 
-  // 게임 플레이 상태를 ref로 (이벤트 핸들러에서 최신값 참조)
   const playingRef = useRef(playingGame);
-  useEffect(() => {
-    playingRef.current = playingGame;
-  }, [playingGame]);
+  useEffect(() => { playingRef.current = playingGame; }, [playingGame]);
 
-  // 호버 시 부드럽게 확대/축소 (노트북 + 게임보이). 줌인 중엔 비활성.
-  useFrame((_, delta) => {
-    const lerp = 1 - Math.pow(0.005, delta);
-    const focused = playingRef.current; // 게임보이 줌인 상태
-    const animate = (list, isHovered) => {
-      if (!list.length) return;
-      const target = (isHovered && !focused) ? 1.05 : 1.0;
-      for (const { mesh, baseScale } of list) {
-        const cur = mesh.scale.x / baseScale.x;
-        const next = cur + (target - cur) * lerp;
-        mesh.scale.set(baseScale.x * next, baseScale.y * next, baseScale.z * next);
-      }
-    };
-    animate(laptopMeshes.current, hovered.current);
-    animate(gameboyMeshes.current, gbHovered.current);
-  });
+  const lastMoveRef = useRef(0);
 
   const {
-    gameRoughness,
-    gameMetalness,
-    laptopRoughness,
-    laptopMetalness,
-    deskObjRoughness,
-    deskObjMetalness,
-    screenColor,
-    screenRoughness,
-    screenOpacity,
-    bezelColor,
-    bezelRoughness,
+    gameRoughness, gameMetalness,
+    laptopRoughness, laptopMetalness,
+    deskObjRoughness, deskObjMetalness,
+    screenColor, screenRoughness, screenOpacity,
+    bezelColor, bezelRoughness,
+    calendarOffsetX = 0, calendarOffsetY = 0, calendarOffsetZ = 0,
   } = controls;
 
-  const textures = useTexture([
-    "/textures/room/day/Floor_Bake1_CyclesBake_COMBINED.webp",
-    "/textures/room/day/Table_Bake1_CyclesBake_COMBINED.webp",
-    "/textures/room/day/Table object_Bake1_PBR_Diffuse.webp",
-    "/textures/room/day/Wallpaper_Bake1_CyclesBake_COMBINED.webp",
-    "/textures/room/day/Wall object_Bake1_PBR_Diffuse.webp",
+  const [floorDay, tableDay, tableObjDay, wallDay, wallObjDay] = useTexture([
+    "/textures/room/day/floor.webp",
+    "/textures/room/day/table.webp",
+    "/textures/room/day/table_object.webp",
+    "/textures/room/day/wallpaper.webp",
+    "/textures/room/day/wall_object.webp",
+  ]);
+  const [floorNight, tableNight, tableObjNight, wallNight, wallObjNight] = useTexture([
+    "/textures/room/night/floor.webp",
+    "/textures/room/night/table.webp",
+    "/textures/room/night/table_object.webp",
+    "/textures/room/night/wallpaper.webp",
+    "/textures/room/night/wall_object.webp",
   ]);
 
-  const [floorTxt, tableTxt, tableObjTxt, wallTxt, wallObjTxt] = textures;
-
-  // 텍스처 설정 최초 1회
   useEffect(() => {
-    textures.forEach((t) => {
+    [floorDay, tableDay, tableObjDay, wallDay, wallObjDay,
+     floorNight, tableNight, tableObjNight, wallNight, wallObjNight].forEach((t) => {
       t.flipY = false;
       t.colorSpace = THREE.SRGBColorSpace;
       t.minFilter = THREE.LinearFilter;
@@ -85,112 +129,165 @@ export function Room({ controls, onLaptopClick, onGameboyClick, playingGame, gbT
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 머티리얼 최초 1회 생성 + 씬에 적용
   useEffect(() => {
-    const mats = {
-      바닥_Baked: new THREE.MeshBasicMaterial({ map: floorTxt }),
-      벽지_Baked: new THREE.MeshBasicMaterial({ map: wallTxt }),
-      TodoList_Baked: new THREE.MeshBasicMaterial({ map: wallObjTxt }),
-      책상_Baked: new THREE.MeshBasicMaterial({ map: tableTxt }),
-      // 달력 몸체 = 베이크 텍스처
-      달력: new THREE.MeshBasicMaterial({ map: wallObjTxt }),
-      // 달력 앞면 = 오늘 날짜 텍스처
-      달력앞면: new THREE.MeshBasicMaterial({ map: calendarTexture, toneMapped: false }),
-      램프: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
-      컵: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
-      게임기몸통_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
-      노트북_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
-      책상소품_Baked: new THREE.MeshStandardMaterial({ map: tableObjTxt }),
-      게임기화면: new THREE.MeshBasicMaterial({
-        map: gbTexture,
-        toneMapped: false,
-      }),
-      게임기화면근처: new THREE.MeshStandardMaterial(),
-      // 노트북 화면 = CanvasTexture (스스로 빛나는 디스플레이)
-      노트북화면: new THREE.MeshBasicMaterial({
-        map: laptopScreenTexture,
-        toneMapped: false,
-        side: THREE.DoubleSide,
-      }),
+    const initRatio = mixRatioRef.current;
+
+    // onBeforeCompile 주입 헬퍼
+    const mkBasic = (dayTex, nightTex) => {
+      const mat = new THREE.MeshBasicMaterial({ map: dayTex });
+      injectCrossfade(mat, nightTex, false);
+      return mat;
     };
+    const mkStandard = (dayTex, nightTex) => {
+      const mat = new THREE.MeshStandardMaterial({ map: dayTex });
+      injectCrossfade(mat, nightTex, true);
+      return mat;
+    };
+
+    const mats = {
+      바닥_Baked:      mkBasic(floorDay,    floorNight),
+      벽지_Baked:      mkBasic(wallDay,     wallNight),
+      TodoList_Baked:  mkBasic(wallObjDay,  wallObjNight),
+      책상_Baked:      mkBasic(tableDay,    tableNight),
+      스탠드_Baked:    mkStandard(tableObjDay, tableObjNight),
+      컵_Baked:        mkStandard(tableObjDay, tableObjNight),
+      게임기몸통_Baked: mkStandard(tableObjDay, tableObjNight),
+      노트북_Baked:    mkStandard(tableObjDay, tableObjNight),
+      책상소품_Baked:  mkStandard(tableObjDay, tableObjNight),
+      // 크로스페이드 불필요한 고정 머티리얼
+      달력앞면:        new THREE.MeshBasicMaterial({ map: calendarTexture, toneMapped: false }),
+      게임기화면:      new THREE.MeshBasicMaterial({ map: gbTexture, toneMapped: false }),
+      게임기화면근처:  new THREE.MeshStandardMaterial(),
+      노트북화면:      new THREE.MeshBasicMaterial({ map: laptopScreenTexture, toneMapped: false, side: THREE.DoubleSide }),
+    };
+
+    // 크로스페이드 대상 목록
+    crossfadeMatsRef.current = [
+      mats.바닥_Baked, mats.벽지_Baked, mats.TodoList_Baked, mats.책상_Baked,
+      mats.스탠드_Baked, mats.컵_Baked, mats.게임기몸통_Baked, mats.노트북_Baked, mats.책상소품_Baked,
+    ];
+
+    // 초기 ratio 반영 (shader 컴파일 전이라 userData에 저장, useFrame에서 반영됨)
+    mixRatioRef.current = initRatio;
 
     materialsRef.current = mats;
 
-    // 클릭 대상 메시 (노트북 + 게임보이 전체)
-    const GAMEBOY = ["게임기화면", "게임기몸통_Baked", "게임기화면근처"];
-    const CLICKABLE = ["노트북화면", "노트북_Baked", ...GAMEBOY];
-
+    const GAMEBOY   = ["게임기화면", "게임기몸통_Baked", "게임기화면근처"];
+    const CLICKABLE = ["노트북히트박스", "게임보이히트박스", "게임기화면근처"];
     const collected = [];
     const gbCollected = [];
+
     scene.traverse((child) => {
       if (!child.isMesh) return;
       const mat = mats[child.name];
-      if (mat) {
-        child.material = mat;
-      } else {
-        console.warn("No material for:", child.name);
+      if (mat) child.material = mat;
+
+      // 히트박스: invisible
+      if (child.name === "노트북히트박스" || child.name === "게임보이히트박스") {
+        child.material = new THREE.MeshBasicMaterial({ visible: false });
       }
-      // 클릭 대상 외 메시는 레이캐스팅 제외 → 호버 렉 방지
-      if (!CLICKABLE.includes(child.name)) {
-        child.raycast = () => null;
-      }
-      // 노트북 호버 확대용 수집
-      if (child.name === "노트북화면" || child.name === "노트북_Baked") {
+
+      if (!CLICKABLE.includes(child.name)) child.raycast = () => null;
+      if (child.name === "달력앞면") calendarMeshRef.current = child;
+      if (child.name === "노트북화면" || child.name === "노트북_Baked")
         collected.push({ mesh: child, baseScale: child.scale.clone() });
-      }
-      // 게임보이 호버 확대용 수집
-      if (GAMEBOY.includes(child.name)) {
+      if (GAMEBOY.includes(child.name))
         gbCollected.push({ mesh: child, baseScale: child.scale.clone() });
-      }
     });
+
     laptopMeshes.current = collected;
     gameboyMeshes.current = gbCollected;
 
-    return () => {
-      Object.values(mats).forEach((m) => m.dispose());
-    };
-  }, [
-    scene,
-    floorTxt,
-    tableTxt,
-    tableObjTxt,
-    wallTxt,
-    wallObjTxt,
-    laptopScreenTexture,
-    calendarTexture,
-    gbTexture,
-  ]);
+    // shader 미리 컴파일 → 첫 전환 시 깜빡임 방지
+    gl.compile(scene, camera);
 
-  // leva 값 변경 시 머티리얼 속성만 업데이트 (새 객체 생성 X)
+    return () => {
+      Object.entries(mats).forEach(([key, m]) => {
+        if (key === "노트북화면" || key === "달력앞면") m.map = null;
+        m.dispose();
+      });
+    };
+  }, [scene, gl, camera]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // gbTexture 교체
+  useEffect(() => {
+    const m = materialsRef.current;
+    if (!m.게임기화면) return;
+    m.게임기화면.map = gbTexture;
+    m.게임기화면.needsUpdate = true;
+  }, [gbTexture]);
+
+  // 훅 텍스처 연결
+  useEffect(() => {
+    const m = materialsRef.current;
+    if (!m.노트북화면 || !laptopScreenTexture) return;
+    m.노트북화면.map = laptopScreenTexture;
+    m.노트북화면.needsUpdate = true;
+  }, [laptopScreenTexture]);
+
+  useEffect(() => {
+    const m = materialsRef.current;
+    if (!m.달력앞면 || !calendarTexture) return;
+    m.달력앞면.map = calendarTexture;
+    m.달력앞면.needsUpdate = true;
+  }, [calendarTexture]);
+
+  // 달력 position 오프셋
+  useEffect(() => {
+    const mesh = calendarMeshRef.current;
+    if (!mesh) return;
+    if (!mesh.userData.basePosition) mesh.userData.basePosition = mesh.position.clone();
+    const base = mesh.userData.basePosition;
+    mesh.position.set(base.x + calendarOffsetX, base.y + calendarOffsetY, base.z + calendarOffsetZ);
+  }, [calendarOffsetX, calendarOffsetY, calendarOffsetZ]);
+
+  // leva 값 변경
   useEffect(() => {
     const m = materialsRef.current;
     if (!m.게임기몸통_Baked) return;
-
     m.게임기몸통_Baked.roughness = gameRoughness;
     m.게임기몸통_Baked.metalness = gameMetalness;
-
     m.노트북_Baked.roughness = laptopRoughness;
     m.노트북_Baked.metalness = laptopMetalness;
-
     m.책상소품_Baked.roughness = deskObjRoughness;
     m.책상소품_Baked.metalness = deskObjMetalness;
-
     m.게임기화면근처.color.set(bezelColor);
     m.게임기화면근처.roughness = bezelRoughness;
-  }, [
-    gameRoughness,
-    gameMetalness,
-    laptopRoughness,
-    laptopMetalness,
-    deskObjRoughness,
-    deskObjMetalness,
-    bezelColor,
-    bezelRoughness,
-  ]);
+  }, [gameRoughness, gameMetalness, laptopRoughness, laptopMetalness,
+      deskObjRoughness, deskObjMetalness, bezelColor, bezelRoughness]);
 
-  const isLaptop = (n) => n === "노트북화면" || n === "노트북_Baked";
-  const isGameboy = (n) =>
-    n === "게임기화면" || n === "게임기몸통_Baked" || n === "게임기화면근처";
+  useFrame((_, delta) => {
+    // ── 크로스페이드 lerp (~1초) ──
+    const cur = mixRatioRef.current;
+    const target = mixTargetRef.current;
+    if (Math.abs(cur - target) > 0.001) {
+      const next = cur + (target - cur) * (1 - Math.pow(0.001, delta));
+      mixRatioRef.current = next;
+      crossfadeMatsRef.current.forEach((mat) => mat.setMixRatio?.(next));
+    }
+
+    // ── 호버 스케일 ──
+    const lerp = 1 - Math.pow(0.005, delta);
+    const focused = playingRef.current;
+    const animate = (list, isHovered) => {
+      if (!list.length) return;
+      const scaleTarget = (isHovered && !focused) ? 1.05 : 1.0;
+      for (const { mesh, baseScale } of list) {
+        const c = mesh.scale.x / baseScale.x;
+        if (Math.abs(c - scaleTarget) < 0.0001) {
+          if (c !== scaleTarget) mesh.scale.set(baseScale.x * scaleTarget, baseScale.y * scaleTarget, baseScale.z * scaleTarget);
+          continue;
+        }
+        const n = c + (scaleTarget - c) * lerp;
+        mesh.scale.set(baseScale.x * n, baseScale.y * n, baseScale.z * n);
+      }
+    };
+    animate(laptopMeshes.current, hovered.current);
+    animate(gameboyMeshes.current, gbHovered.current);
+  });
+
+  const isLaptop  = (n) => n === "노트북히트박스";
+  const isGameboy = (n) => n === "게임보이히트박스" || n === "게임기화면근처";
 
   return (
     <primitive
@@ -202,41 +299,28 @@ export function Room({ controls, onLaptopClick, onGameboyClick, playingGame, gbT
           onLaptopClick?.();
         } else if (isGameboy(n)) {
           if (playingRef.current) {
-            // 줌인 상태: 화면을 클릭하면 위치로 선택(메뉴) / 그 외엔 액션
-            if (n === "게임기화면" && e.uv) gbApi.selectAt({ x: e.uv.x, y: e.uv.y });
-            else gbApi.press();
+            gbApi.press();
           } else {
-            onGameboyClick?.(); // 줌인
+            onGameboyClick?.();
           }
         }
       }}
       onPointerMove={(e) => {
-        // 게임보이 메뉴 위에서 마우스 움직이면 항목 포커스
-        if (e.object.name === "게임기화면" && playingRef.current && e.uv) {
+        const now = performance.now();
+        if (now - lastMoveRef.current < 50) return;
+        lastMoveRef.current = now;
+        if (e.object.name === "게임기화면" && playingRef.current && e.uv)
           gbApi.hoverAt({ x: e.uv.x, y: e.uv.y });
-        }
       }}
       onPointerOver={(e) => {
         const n = e.object.name;
-        if (isLaptop(n)) {
-          e.stopPropagation();
-          document.body.style.cursor = "pointer";
-          hovered.current = true;
-        } else if (isGameboy(n)) {
-          e.stopPropagation();
-          document.body.style.cursor = "pointer";
-          gbHovered.current = true;
-        }
+        if (isLaptop(n)) { e.stopPropagation(); document.body.style.cursor = "pointer"; hovered.current = true; }
+        else if (isGameboy(n)) { e.stopPropagation(); document.body.style.cursor = "pointer"; gbHovered.current = true; }
       }}
       onPointerOut={(e) => {
         const n = e.object.name;
-        if (isLaptop(n)) {
-          document.body.style.cursor = "default";
-          hovered.current = false;
-        } else if (isGameboy(n)) {
-          document.body.style.cursor = "default";
-          gbHovered.current = false;
-        }
+        if (isLaptop(n)) { document.body.style.cursor = "default"; hovered.current = false; }
+        else if (isGameboy(n)) { document.body.style.cursor = "default"; gbHovered.current = false; }
       }}
     />
   );

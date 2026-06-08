@@ -6,7 +6,7 @@ const CANVAS_W = 560;
 const CANVAS_H = 560;
 
 // UV 회전 보정 (0, Math.PI/2, -Math.PI/2, Math.PI)
-const UV_ROTATION = -Math.PI / 2;
+const UV_ROTATION = 0;
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -93,14 +93,14 @@ function drawContent(ctx) {
   // 연도 + 월 (상단) - "2026 . June"
   ctx.fillStyle = "#c08552";
   ctx.font = `46px ${FONT}`;
-  ctx.fillText(`${year} . ${month}`, W / 2, H * 0.16);
+  ctx.fillText(`${year} . ${month}`, W / 2, H * 0.22);
 
   // 구분선 (손그림 물결)
   ctx.strokeStyle = "#e0c9a8";
   ctx.lineWidth = 3;
   ctx.lineCap = "round";
   ctx.beginPath();
-  const lineY = H * 0.25;
+  const lineY = H * 0.31;
   const lineW = W * 0.5;
   ctx.moveTo(W / 2 - lineW / 2, lineY);
   for (let i = 0; i <= 1; i += 0.1) {
@@ -112,24 +112,24 @@ function drawContent(ctx) {
   // 큰 날짜 숫자 (중앙)
   ctx.fillStyle = "#4a3b2e";
   ctx.font = `230px ${FONT}`;
-  ctx.fillText(String(date), W / 2, H * 0.48);
+  ctx.fillText(String(date), W / 2, H * 0.56);
 
   // 요일 (날짜 아래)
   ctx.fillStyle = "#a07850";
   ctx.font = `44px ${FONT}`;
-  ctx.fillText(day, W / 2, H * 0.7);
+  ctx.fillText(day, W / 2, H * 0.77);
 
   // 작은 별 장식 (요일 양옆)
   ctx.fillStyle = "#d8b88a";
   const dayW = ctx.measureText(day).width;
-  drawStar(ctx, W / 2 - dayW / 2 - 28, H * 0.7, 7);
-  drawStar(ctx, W / 2 + dayW / 2 + 28, H * 0.7, 7);
+  drawStar(ctx, W / 2 - dayW / 2 - 28, H * 0.77, 7);
+  drawStar(ctx, W / 2 + dayW / 2 + 28, H * 0.77, 7);
  
   // 전체 날짜 (하단) - "2026. 06. 06"
   ctx.fillStyle = "#c4b8a8";
   ctx.font = `30px ${FONT}`;
   const pad = (n) => String(n).padStart(2, "0");
-  ctx.fillText(`${year}. ${pad(monthNum)}. ${pad(date)}`, W / 2, H * 0.83);
+  ctx.fillText(`${year}. ${pad(monthNum)}. ${pad(date)}`, W / 2, H * 0.91);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";

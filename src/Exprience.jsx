@@ -173,8 +173,8 @@ const Experience = () => {
         />
         <Suspense fallback={null}>
           <Environment
-            files="/hdrs/snooker-room_0_5K_f0dbfbbe-d41d-42e2-b226-8709ec529dca.exr"
-            environmentIntensity={envIntensity}
+            files={dayNight === "night" ? "/hdrs/night.exr" : "/hdrs/day.exr"}
+            environmentIntensity={dayNight === "night" ? envIntensity * 0.55 : envIntensity}
             background={false}
           />
           <Room
@@ -184,6 +184,7 @@ const Experience = () => {
             playingGame={playingGame}
             gbTexture={gbTexture}
             gbApi={gbApi}
+            dayNight={dayNight}
           />
           <CoffeeSteam
             position={[steamX, steamY, steamZ]}
