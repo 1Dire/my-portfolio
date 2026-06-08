@@ -15,6 +15,7 @@ import { NightOverlay, RoomControls, BottomLinks, CreditsModal } from "@/compone
 import { ProjectGallery } from "@/components/ProjectGallery";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { StarParticles } from "@/components/StarParticles";
+import { MobilePortfolio } from "@/components/MobilePortfolio";
 
 const isDebug =
   typeof window !== "undefined" &&
@@ -47,7 +48,7 @@ const DualEnvironment = ({ isNight, dayIntensity, nightIntensity }) => (
   </>
 );
 
-const Experience = () => {
+const Desktop3D = () => {
   const controls = useSceneControls();
   const isMobile = useIsMobile();
   const [showGallery, setShowGallery] = useState(false);
@@ -272,6 +273,12 @@ const Experience = () => {
       <CreditsModal open={showCredits} onClose={() => setShowCredits(false)} />
     </div>
   );
+};
+
+const Experience = () => {
+  const isMobile = useIsMobile();
+  if (isMobile) return <MobilePortfolio />;
+  return <Desktop3D />;
 };
 
 export default Experience;
