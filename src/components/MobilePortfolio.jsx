@@ -3,9 +3,9 @@ import { projects } from "@/data/projects";
 import { FiGithub, FiInfo, FiX } from "react-icons/fi";
 import { FaXTwitter } from "react-icons/fa6";
 
-const GITHUB_URL = "https://github.com/1Dire";
-const REPO_URL   = "https://github.com/1Dire/my-portfolio";
-const X_URL      = "https://x.com/1Dire_dev";
+const GITHUB_URL     = "https://github.com/1Dire";
+const REPO_URL       = "https://github.com/1Dire/my-portfolio";
+const X_URL          = "https://x.com/1Dire_dev";
 const MUSIC_URL      = "https://pixabay.com/music/beats-lofi-chill-background-music-508269/";
 const GAME_MUSIC_URL = "https://pixabay.com/music/video-games-the-console-of-my-dreams-301289/";
 
@@ -16,7 +16,7 @@ const TAPE_COLORS = [
   "rgba(255, 190, 190, 0.55)",
   "rgba(220, 190, 255, 0.55)",
 ];
-const CARD_BG = ["#fffef5", "#fff9f0", "#f5fff5", "#f5f8ff", "#fff5fb"];
+const CARD_BG    = ["#fffef5", "#fff9f0", "#f5fff5", "#f5f8ff", "#fff5fb"];
 const STICKER_ROT = [-4, 3, -2, 5, -3, 2, -5, 4];
 
 const TECH_STYLES = {
@@ -44,47 +44,23 @@ const TECH_STYLES = {
 const DEFAULT_TECH = { bg: "#d4c4a0", fg: "#3d2f15", bd: "#b09a6e" };
 
 export function MobilePortfolio() {
-  const [activeTab, setActiveTab]   = useState("toy");
+  const [activeTab, setActiveTab]     = useState("toy");
   const [showCredits, setShowCredits] = useState(false);
 
   const filtered = projects.filter((p) => p.category === activeTab);
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "rgba(58, 68, 52, 1)",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-    }}>
+    <div style={{ minHeight: "100vh", background: "rgba(58, 68, 52, 1)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
         * { box-sizing: border-box; }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         .mp-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .mp-card:active { transform: scale(0.97) !important; }
         .mp-memo-link:active { background: rgba(0,0,0,0.06) !important; }
-        .mp-tab {
-          font-family: 'Patrick Hand', cursive;
-          font-size: 19px;
-          cursor: pointer;
-          border: none;
-          background: transparent;
-          padding: 6px 22px;
-          border-radius: 20px;
-          transition: background 0.2s, color 0.2s;
-        }
-        .mp-tab.active {
-          background: rgba(210,185,120,0.28);
-          color: rgba(245,230,185,0.95);
-        }
+        .mp-tab { font-family: 'Patrick Hand', cursive; font-size: 19px; cursor: pointer; border: none; background: transparent; padding: 6px 22px; border-radius: 20px; transition: background 0.2s, color 0.2s; }
+        .mp-tab.active { background: rgba(210,185,120,0.28); color: rgba(245,230,185,0.95); }
         .mp-tab.inactive { color: rgba(200,175,110,0.4); }
         .mp-icon-btn { transition: background 0.2s; }
         .mp-icon-btn:active { background: rgba(255,255,255,0.1) !important; }
@@ -93,152 +69,62 @@ export function MobilePortfolio() {
         ::-webkit-scrollbar-thumb { background: rgba(200,180,120,0.25); border-radius: 2px; }
       `}</style>
 
-      {/* 헤더 */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "28px 24px 16px",
-        flexShrink: 0,
-        animation: "fadeIn 0.4s ease",
-      }}>
+      {/* header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "28px 24px 16px", flexShrink: 0, animation: "fadeIn 0.4s ease" }}>
         <div>
-          <p style={{
-            fontFamily: "'Patrick Hand', cursive",
-            color: "rgba(210,190,130,0.55)",
-            fontSize: 16,
-            margin: "0 0 4px",
-            letterSpacing: 3,
-          }}>
+          <p style={{ fontFamily: "'Patrick Hand', cursive", color: "rgba(210,190,130,0.55)", fontSize: 16, margin: "0 0 4px", letterSpacing: 3 }}>
             — portfolio
           </p>
-          <h1 style={{
-            fontFamily: "'Patrick Hand', cursive",
-            color: "rgba(248,238,205,0.95)",
-            fontSize: 28,
-            margin: 0,
-          }}>
+          <h1 style={{ fontFamily: "'Patrick Hand', cursive", color: "rgba(248,238,205,0.95)", fontSize: 28, margin: 0 }}>
             Project Notes
           </h1>
         </div>
-
-        {/* 우측: 소셜 + 크레딧 */}
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <a href={X_URL} target="_blank" rel="noopener noreferrer"
-            className="mp-icon-btn"
+          <a href={X_URL} target="_blank" rel="noopener noreferrer" className="mp-icon-btn"
             style={{ color: "rgba(220,200,145,0.65)", background: "transparent", border: "1px solid rgba(200,175,110,0.3)", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <FaXTwitter size={16} />
           </a>
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer"
-            className="mp-icon-btn"
+          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="mp-icon-btn"
             style={{ color: "rgba(220,200,145,0.65)", background: "transparent", border: "1px solid rgba(200,175,110,0.3)", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <FiGithub size={18} />
           </a>
-          <button
-            className="mp-icon-btn"
-            onClick={() => setShowCredits(true)}
+          <button className="mp-icon-btn" onClick={() => setShowCredits(true)}
             style={{ color: "rgba(220,200,145,0.65)", background: "transparent", border: "1px solid rgba(200,175,110,0.3)", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <FiInfo size={18} />
           </button>
         </div>
       </div>
 
-      {/* 탭 */}
-      <div style={{
-        display: "flex",
-        gap: 4,
-        padding: "0 24px 14px",
-        borderBottom: "1px solid rgba(200,175,110,0.15)",
-        flexShrink: 0,
-      }}>
-        <button className={`mp-tab ${activeTab === "toy" ? "active" : "inactive"}`} onClick={() => setActiveTab("toy")}>
-          Toy Projects
-        </button>
-        <button className={`mp-tab ${activeTab === "work" ? "active" : "inactive"}`} onClick={() => setActiveTab("work")}>
-          Work
-        </button>
+      {/* tabs */}
+      <div style={{ display: "flex", gap: 4, padding: "0 24px 14px", borderBottom: "1px solid rgba(200,175,110,0.15)", flexShrink: 0 }}>
+        <button className={`mp-tab ${activeTab === "toy" ? "active" : "inactive"}`} onClick={() => setActiveTab("toy")}>Toy Projects</button>
+        <button className={`mp-tab ${activeTab === "work" ? "active" : "inactive"}`} onClick={() => setActiveTab("work")}>Work</button>
       </div>
 
-      {/* 카드 목록 */}
+      {/* cards */}
       <div style={{ flex: 1, overflowY: "auto", padding: "28px 24px 32px" }}>
-        <div
-          key={activeTab}
-          style={{ display: "flex", flexDirection: "column", gap: 32, animation: "slideUp 0.35s ease" }}
-        >
+        <div key={activeTab} style={{ display: "flex", flexDirection: "column", gap: 32, animation: "slideUp 0.35s ease" }}>
           {filtered.map((project, i) => {
-            const rot = [-2.2, 1.5, -1.0, 2.0, -1.5, 0.8][i % 6];
+            const rot       = [-2.2, 1.5, -1.0, 2.0, -1.5, 0.8][i % 6];
             const tapeColor = TAPE_COLORS[i % TAPE_COLORS.length];
             const cardBg    = CARD_BG[i % CARD_BG.length];
             const tapeLeft  = 20 + (i % 3) * 15;
 
             return (
-              <div
-                key={project.id}
-                className="mp-card"
-                style={{
-                  background: cardBg,
-                  borderRadius: 2,
-                  overflow: "visible",
-                  boxShadow: "3px 6px 18px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(0,0,0,0.04)",
-                  transform: `rotate(${rot}deg)`,
-                  marginTop: 10,
-                  position: "relative",
-                }}
-              >
-                {/* 테이프 */}
-                <div style={{
-                  position: "absolute",
-                  top: -6,
-                  left: `${tapeLeft}%`,
-                  width: 52,
-                  height: 18,
-                  background: tapeColor,
-                  borderRadius: 2,
-                  zIndex: 1,
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  transform: `rotate(${-rot * 0.5}deg)`,
-                }} />
+              <div key={project.id} className="mp-card" style={{ background: cardBg, borderRadius: 2, overflow: "visible", boxShadow: "3px 6px 18px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(0,0,0,0.04)", transform: `rotate(${rot}deg)`, marginTop: 10, position: "relative" }}>
+                {/* tape */}
+                <div style={{ position: "absolute", top: -6, left: `${tapeLeft}%`, width: 52, height: 18, background: tapeColor, borderRadius: 2, zIndex: 1, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transform: `rotate(${-rot * 0.5}deg)` }} />
 
-                {/* 이미지 + 기술 스티커 */}
+                {/* image + stickers */}
                 <div style={{ position: "relative", overflow: "visible", borderRadius: "2px 2px 0 0" }}>
                   <div style={{ overflow: "hidden", borderRadius: "2px 2px 0 0" }}>
-                    <img
-                      src={project.image}
-                      alt={project.title}
-                      style={{ width: "100%", height: 140, objectFit: "cover", display: "block", filter: "sepia(8%) contrast(0.93) brightness(0.97)" }}
-                      loading="lazy"
-                    />
+                    <img src={project.image} alt={project.title} style={{ width: "100%", height: 140, objectFit: "cover", display: "block", filter: "sepia(8%) contrast(0.93) brightness(0.97)" }} loading="lazy" />
                   </div>
-                  <div style={{
-                    position: "absolute",
-                    bottom: -10,
-                    right: 8,
-                    display: "flex",
-                    flexDirection: "row-reverse",
-                    flexWrap: "wrap-reverse",
-                    gap: 6,
-                    maxWidth: "75%",
-                    justifyContent: "flex-start",
-                    zIndex: 3,
-                  }}>
+                  <div style={{ position: "absolute", bottom: -10, right: 8, display: "flex", flexDirection: "row-reverse", flexWrap: "wrap-reverse", gap: 6, maxWidth: "75%", justifyContent: "flex-start", zIndex: 3 }}>
                     {project.tech.map((t, ti) => {
                       const s = TECH_STYLES[t] || DEFAULT_TECH;
                       return (
-                        <span key={t} style={{
-                          fontFamily: "'Patrick Hand', cursive",
-                          fontWeight: 600,
-                          background: s.bg,
-                          color: s.fg,
-                          fontSize: 14,
-                          lineHeight: 1,
-                          padding: "4px 10px 5px",
-                          borderRadius: 12,
-                          border: `2px solid #fffef5`,
-                          boxShadow: `0 0 0 1px ${s.bd}, 1px 2px 4px rgba(0,0,0,0.3)`,
-                          transform: `rotate(${STICKER_ROT[ti % STICKER_ROT.length]}deg)`,
-                          display: "inline-block",
-                          whiteSpace: "nowrap",
-                        }}>
+                        <span key={t} style={{ fontFamily: "'Patrick Hand', cursive", fontWeight: 600, background: s.bg, color: s.fg, fontSize: 14, lineHeight: 1, padding: "4px 10px 5px", borderRadius: 12, border: "2px solid #fffef5", boxShadow: `0 0 0 1px ${s.bd}, 1px 2px 4px rgba(0,0,0,0.3)`, transform: `rotate(${STICKER_ROT[ti % STICKER_ROT.length]}deg)`, display: "inline-block", whiteSpace: "nowrap" }}>
                           {t}
                         </span>
                       );
@@ -246,28 +132,13 @@ export function MobilePortfolio() {
                   </div>
                 </div>
 
-                {/* 내용 */}
-                <div style={{
-                  padding: "20px 16px 16px",
-                  background: `repeating-linear-gradient(to bottom, transparent, transparent 23px, rgba(100,140,200,0.1) 23px, rgba(100,140,200,0.1) 24px)`,
-                }}>
-                  <h3 style={{
-                    fontFamily: "'Patrick Hand', cursive",
-                    color: "rgba(40,26,6,0.88)",
-                    fontSize: 19,
-                    margin: "0 0 8px",
-                    lineHeight: 1.3,
-                  }}>
+                {/* content */}
+                <div style={{ padding: "20px 16px 16px", background: "repeating-linear-gradient(to bottom, transparent, transparent 23px, rgba(100,140,200,0.1) 23px, rgba(100,140,200,0.1) 24px)" }}>
+                  <h3 style={{ fontFamily: "'Patrick Hand', cursive", color: "rgba(40,26,6,0.88)", fontSize: 19, margin: "0 0 8px", lineHeight: 1.3 }}>
                     {project.title}
                   </h3>
                   {project.description && (
-                    <p style={{
-                      fontFamily: "'Patrick Hand', cursive",
-                      color: "rgba(65,45,15,0.62)",
-                      fontSize: 16,
-                      lineHeight: 1.5,
-                      margin: "0 0 12px",
-                    }}>
+                    <p style={{ fontFamily: "'Patrick Hand', cursive", color: "rgba(65,45,15,0.62)", fontSize: 16, lineHeight: 1.5, margin: "0 0 12px" }}>
                       {project.description}
                     </p>
                   )}
@@ -292,31 +163,16 @@ export function MobilePortfolio() {
         </div>
       </div>
 
-      {/* 하단 */}
-      <div style={{
-        textAlign: "center",
-        padding: "14px",
-        fontFamily: "'Patrick Hand', cursive",
-        color: "rgba(200,175,110,0.3)",
-        fontSize: 15,
-        flexShrink: 0,
-        borderTop: "1px solid rgba(200,175,110,0.1)",
-      }}>
-        desktop에서 3D 버전을 경험해보세요 ✦
+      {/* footer */}
+      <div style={{ textAlign: "center", padding: "14px", fontFamily: "'Patrick Hand', cursive", color: "rgba(200,175,110,0.3)", fontSize: 15, flexShrink: 0, borderTop: "1px solid rgba(200,175,110,0.1)" }}>
+        experience the 3D version on desktop ✦
       </div>
 
-      {/* 크레딧 모달 */}
+      {/* credits modal */}
       {showCredits && (
-        <div
-          onClick={() => setShowCredits(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "#3a4434", border: "1px solid rgba(210,185,120,0.3)", borderRadius: 16, padding: "28px 24px", width: "100%", maxWidth: 360, position: "relative", fontFamily: "'Patrick Hand', cursive" }}
-          >
-            <button onClick={() => setShowCredits(false)}
-              style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "rgba(210,190,130,0.6)", cursor: "pointer" }}>
+        <div onClick={() => setShowCredits(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#3a4434", border: "1px solid rgba(210,185,120,0.3)", borderRadius: 16, padding: "28px 24px", width: "100%", maxWidth: 360, position: "relative", fontFamily: "'Patrick Hand', cursive" }}>
+            <button onClick={() => setShowCredits(false)} style={{ position: "absolute", top: 16, right: 16, background: "none", border: "none", color: "rgba(210,190,130,0.6)", cursor: "pointer" }}>
               <FiX size={20} />
             </button>
             <h2 style={{ color: "rgba(248,238,205,0.95)", fontSize: 24, marginBottom: 4 }}>dire's room</h2>
